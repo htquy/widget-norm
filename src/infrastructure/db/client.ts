@@ -37,8 +37,6 @@ async function create(): Promise<DB> {
     db = drizzle(new PGlite(dir), { schema }) as unknown as DB;
   }
   for (const stmt of schema.DDL) await db.execute(sql.raw(stmt));
-  const { seedIfEmpty } = await import("./seed");
-  await seedIfEmpty(db);
   return db;
 }
 

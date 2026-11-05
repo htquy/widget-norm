@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LEAD_SOURCE_LABELS, LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@/domain/lead";
-import { formatVnd } from "@/domain/product";
+import { formatVnd } from "@/domain/text";
 import { requireSession } from "@/infrastructure/auth/session";
 import { app } from "@/infrastructure/container";
 import { Badge, Empty, LEAD_TONE, PageHeader, btnSecondary, fieldCls, fmtDateTime } from "@/components/admin/ui";

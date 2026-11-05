@@ -7,10 +7,11 @@ import { z } from "zod";
 import { BOOKING_STATUSES, sanitizeHours, type Weekday } from "@/domain/booking";
 import { DomainError } from "@/domain/errors";
 import { LEAD_STATUSES } from "@/domain/lead";
-import { MAX_DESCRIPTION_LENGTH } from "@/domain/product";
+import { MAX_DESCRIPTION_LENGTH } from "@/bots/store/product";
 import { MAX_KNOWLEDGE_LENGTH } from "@/domain/tenant";
 import { sanitizeTheme } from "@/domain/theme";
-import { createSession, destroySession, requireSession } from "@/infrastructure/auth/session";
+import { createSession, destroySession, requireAccount, requireSession } from "@/infrastructure/auth/session";
+import { isBotKind } from "@/domain/tenant";
 import { app } from "@/infrastructure/container";
 import { rateLimit } from "@/infrastructure/http";
 import { rangeFor } from "@/components/admin/ui";
@@ -43,6 +44,47 @@ export async function loginAction(_: ActionState, form: FormData): Promise<Actio
     return fail(e);
   }
   redirect("/admin");
+}
+
+/** Đăng ký dùng thử: tạo tài khoản + chatbot đầu tiên rồi vào thẳng trang quản trị */
+export async function signupAction(_: ActionState, form: FormData): Promise<ActionState> {
+  const f = Object.fromEntries(form);
+  const email = String(f.email ?? "").trim().toLowerCase();
+  if (!rateLimit(`signup:${email}`, 5, 60 * 60_000) || !rateLimit("signup:all", 60, 60 * 60_000)) return { error: "Quá nhiều lượt đăng ký, vui lòng thử lại sau" };
+  try {
+    const kind = isBotKind(f.kind) ? f.kind : "store";
+    const c = await app();
+    const s = await c.auth.signup({ name: String(f.name ?? ""), email, password: String(f.password ?? ""), shopName: String(f.shopName ?? ""), kind });
+    await createSession(s);
+  } catch (e) {
+    return fail(e);
+  }
+  redirect("/admin");
+}
+
+/** Đổi bot đang quản lý — chỉ được chọn bot thuộc tài khoản của mình */
+export async function switchBotAction(form: FormData) {
+  const s = await requireAccount();
+  const id = z.string().uuid().parse(form.get("id"));
+  const bots = await (await app()).tenants.listByAccount(s.accountId);
+  if (!bots.some((b) => b.id === id)) throw new DomainError("FORBIDDEN", "Không có quyền với chatbot này");
+  await createSession({ ...s, tenantId: id });
+  redirect("/admin");
+}
+
+export async function createBotAction(_: ActionState, form: FormData): Promise<ActionState> {
+  const s = await requireAccount();
+  let id = "";
+  try {
+    const kind = z.string().parse(form.get("kind"));
+    if (!isBotKind(kind)) throw new DomainError("BAD_KIND", "Loại chatbot không hợp lệ");
+    const bot = await (await app()).tenants.createBot(s.accountId, kind, String(form.get("shopName") ?? ""));
+    id = bot.id;
+    await createSession({ ...s, tenantId: id });
+  } catch (e) {
+    return fail(e);
+  }
+  redirect("/admin/widget");
 }
 
 export async function logoutAction() {
@@ -110,14 +152,14 @@ export async function saveServiceAction(_: ActionState, form: FormData): Promise
   try {
     const f = Object.fromEntries(form);
     const id = f.id ? z.string().uuid().parse(f.id) : null;
-    await (await app()).catalog.saveService(s.tenantId, id, {
+    await (await app()).services.save(s.tenantId, id, {
       name: z.string().trim().min(1, "Nhập tên dịch vụ").max(120).parse(f.name),
       durationMin: z.coerce.number().int().parse(f.durationMin),
       price: z.coerce.number().int().min(0).parse(String(f.price ?? "0").replace(/[^\d]/g, "") || 0),
       description: z.string().max(1000).parse(f.description ?? ""),
       active: f.active === "on",
     });
-    revalidatePath("/admin/products");
+    revalidatePath("/admin/services");
     return { ok: true, message: id ? "Đã lưu dịch vụ" : "Đã thêm dịch vụ" };
   } catch (e) {
     return fail(e);
@@ -126,8 +168,8 @@ export async function saveServiceAction(_: ActionState, form: FormData): Promise
 
 export async function deleteServiceAction(form: FormData) {
   const s = await requireSession();
-  await (await app()).catalog.removeService(s.tenantId, z.string().uuid().parse(form.get("id")));
-  revalidatePath("/admin/products");
+  await (await app()).services.remove(s.tenantId, z.string().uuid().parse(form.get("id")));
+  revalidatePath("/admin/services");
 }
 
 /* ---------- Sản phẩm ---------- */

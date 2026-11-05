@@ -2,33 +2,31 @@ import type { Booking, BookingStatus, Service } from "@/domain/booking";
 import type { Channel, Conversation, HandoffStatus } from "@/domain/conversation";
 import type { Decision, DecisionLabel, HandoffReason } from "@/domain/decision";
 import type { EventType } from "@/domain/events";
+import type { Account } from "@/domain/account";
 import type { Lead, LeadSource, LeadStatus } from "@/domain/lead";
-import type { Product } from "@/domain/product";
-import type { Tenant, TenantSettings } from "@/domain/tenant";
+import type { BotKind, Tenant, TenantSettings } from "@/domain/tenant";
 
 export interface DateRange {
   from: Date;
   to: Date;
 }
 
+/* ---------- Tài khoản & bot (schema public) ---------- */
+
+export interface AccountRepository {
+  create(a: Omit<Account, "id" | "createdAt">): Promise<Account>;
+  findById(id: string): Promise<Account | null>;
+}
+
 export interface TenantRepository {
   findBySlug(slug: string): Promise<Tenant | null>;
   findById(id: string): Promise<Tenant | null>;
+  listByAccount(accountId: string): Promise<Tenant[]>;
+  create(t: { accountId: string; kind: BotKind; slug: string; name: string; settings: TenantSettings }): Promise<Tenant>;
+  slugExists(slug: string): Promise<boolean>;
   updateSettings(id: string, settings: TenantSettings): Promise<void>;
-}
-
-/* ---------- Danh mục ---------- */
-
-export type NewProduct = Omit<Product, "id" | "createdAt">;
-
-export interface ProductRepository {
-  list(tenantId: string, filter?: { activeOnly?: boolean; search?: string; category?: string }): Promise<Product[]>;
-  findById(tenantId: string, id: string): Promise<Product | null>;
-  findManyByIds(tenantId: string, ids: string[]): Promise<Product[]>;
-  create(p: NewProduct): Promise<Product>;
-  update(tenantId: string, id: string, patch: Partial<NewProduct>): Promise<void>;
-  delete(tenantId: string, id: string): Promise<void>;
-  upsertBySku(p: NewProduct): Promise<"created" | "updated">;
+  /** Số bot mỗi loại đang hoạt động (số liệu thật cho landing page) */
+  countByKind(): Promise<Record<string, number>>;
 }
 
 export type NewService = Omit<Service, "id" | "createdAt">;
@@ -101,6 +99,8 @@ export interface AnalyticsEvent {
   conversationId?: string | null;
   refId?: string | null;
   value?: number | null;
+  /** Nhóm A/B (nếu module bot có thử nghiệm) */
+  variant?: string | null;
 }
 
 export interface EventRepository {
@@ -108,6 +108,8 @@ export interface EventRepository {
   visitorsByType(tenantId: string, range: DateRange): Promise<{ type: EventType; visitors: number }[]>;
   daily(tenantId: string, range: DateRange): Promise<{ day: string; type: EventType; visitors: number }[]>;
   topRefs(tenantId: string, type: EventType, range: DateRange, limit: number): Promise<{ refId: string; visitors: number }[]>;
+  /** Số khách khác nhau theo (loại sự kiện, nhóm A/B) */
+  visitorsByVariant(tenantId: string, range: DateRange): Promise<{ type: EventType; variant: string; visitors: number }[]>;
 }
 
 /** Cách lượt trả lời được xử lý — để đo tỉ lệ không cần gọi LLM */
@@ -151,14 +153,17 @@ export interface Notifier {
 
 export interface AdminUser {
   id: string;
-  tenantId: string;
+  accountId: string;
   email: string;
   passwordHash: string;
   name: string;
+  /** owner | staff */
+  role: string;
 }
 
 export interface AdminUserRepository {
   findByEmail(email: string): Promise<AdminUser | null>;
+  create(u: Omit<AdminUser, "id">): Promise<AdminUser>;
 }
 
 export interface PasswordHasher {

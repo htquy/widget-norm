@@ -1,0 +1,329 @@
+
+/* ---------- Hiệu ứng dùng chung ---------- */
+
+/* Chữ gradient chạy chậm: iris → tím → hổ phách. */
+@utility text-gradient {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-brand-600) 0%,
+    var(--color-violet-500) 35%,
+    var(--color-spark-500) 65%,
+    var(--color-brand-600) 100%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: var(--animate-gradient-pan);
+}
+
+/* Nền "aurora": các quầng màu mờ trôi chậm phía sau nội dung. */
+@utility aurora {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -20%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(38% 42% at 18% 22%, rgb(112 96 241 / 0.22), transparent 70%),
+      radial-gradient(30% 36% at 82% 18%, rgb(245 123 11 / 0.14), transparent 70%),
+      radial-gradient(40% 40% at 65% 85%, rgb(139 92 246 / 0.16), transparent 70%);
+    animation: var(--animate-aurora);
+  }
+}
+
+/* Biến thể aurora cho nền tối (CTA, thẻ giải pháp). */
+@utility aurora-dark {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -30%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(35% 45% at 20% 20%, rgb(112 96 241 / 0.55), transparent 70%),
+      radial-gradient(30% 40% at 85% 30%, rgb(245 123 11 / 0.28), transparent 70%),
+      radial-gradient(40% 45% at 55% 100%, rgb(139 92 246 / 0.45), transparent 70%);
+    animation: var(--animate-aurora);
+  }
+}
+
+/* Lưới mảnh mờ dần ra rìa. */
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(24 24 27 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(24 24 27 / 0.06) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+}
+
+@utility bg-grid-dark {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.07) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 20%, transparent 75%);
+}
+
+/* Viền gradient 1px cho khối nổi bật (giữ nền trắng bên trong). */
+@utility border-gradient {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--color-white), var(--color-white)) padding-box,
+    linear-gradient(135deg, var(--color-brand-400), var(--color-violet-400) 50%, var(--color-spark-300)) border-box;
+}
+
+/* Nhãn nhỏ đầu section. */
+@utility eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-brand-200);
+  background: var(--color-brand-50);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-brand-700);
+}
+
+/* Nút chính: gradient iris, đổ bóng màu, vệt sáng lướt qua khi hover. */
+@utility btn-primary {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 1rem;
+  font-weight: 600;
+  color: var(--color-white);
+  background-image: linear-gradient(135deg, var(--color-brand-600), var(--color-violet-600));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    var(--shadow-glow);
+  transition:
+    transform 0.4s var(--ease-fluid),
+    box-shadow 0.4s var(--ease-fluid),
+    filter 0.3s;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform 0.8s var(--ease-fluid);
+  }
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.22),
+        0 16px 44px -12px rgb(95 69 228 / 0.6);
+    }
+    &:hover::after {
+      transform: translateX(120%);
+    }
+  }
+  &:active {
+    transform: translateY(0) scale(0.98);
+  }
+  &:disabled {
+    filter: grayscale(0.4);
+    opacity: 0.6;
+    transform: none;
+  }
+}
+
+/* Nút phụ: nền trắng, viền chuyển sang iris khi hover. */
+@utility btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  min-height: 2.75rem;
+  border: 1px solid var(--color-zinc-300);
+  background: var(--color-white);
+  padding: 0.625rem 1rem;
+  font-weight: 600;
+  color: var(--color-zinc-900);
+  box-shadow: 0 1px 2px rgb(24 24 27 / 0.05);
+  transition:
+    transform 0.4s var(--ease-fluid),
+    border-color 0.3s,
+    color 0.3s,
+    box-shadow 0.4s var(--ease-fluid);
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-1px);
+      border-color: var(--color-brand-300);
+      color: var(--color-brand-700);
+      box-shadow: 0 10px 30px -14px rgb(95 69 228 / 0.4);
+    }
+  }
+  &:active {
+    transform: translateY(0) scale(0.98);
+  }
+}
+
+/* Thẻ nổi lên khi hover, bóng ngả màu iris. */
+@utility card-lift {
+  transition:
+    transform 0.5s var(--ease-fluid),
+    box-shadow 0.5s var(--ease-fluid),
+    border-color 0.3s;
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-4px);
+      border-color: var(--color-brand-200);
+      box-shadow: var(--shadow-lift);
+    }
+  }
+}
+
+/* Dải sáng gradient ở mép trên thẻ, hiện khi hover (thẻ cần `relative overflow-hidden`). */
+@utility card-topline {
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    z-index: 20;
+    pointer-events: none;
+    background: linear-gradient(90deg, var(--color-brand-500), var(--color-violet-500), var(--color-spark-400));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.6s var(--ease-fluid);
+  }
+  &:hover::before,
+  &:focus-within::before {
+    transform: scaleX(1);
+  }
+}
+
+/*
+ * Hiện dần khi cuộn tới (chỉ trình duyệt hỗ trợ scroll-driven animation).
+ * Bắt đầu từ trạng thái vẫn đọc được (opacity .35) để ảnh chụp/thumbnail không bị trống.
+ */
+@utility reveal {
+  @supports (animation-timeline: view()) {
+    animation: reveal-in linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 90%;
+  }
+}
+
+@keyframes reveal-in {
+  from {
+    opacity: 0.35;
+    translate: 0 24px;
+    scale: 0.985;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
+/* Độ trễ xếp tầng cho animate-fade-up: style={{ "--d": "120ms" }}. */
+@utility stagger {
+  animation-delay: var(--d, 0ms);
+}
+
+/* Shimmer skeleton: quét ngang bằng `background-position` nên không cần
+   `overflow: hidden` cho các khối bo góc; `prefers-reduced-motion` tắt animation. */
+.skeleton {
+  background-color: #f4f4f5;
+  background-image: linear-gradient(90deg, #f4f4f5 0%, #e4e4e7 50%, #f4f4f5 100%);
+  background-repeat: no-repeat;
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Mobile / màn hình cảm ứng: tắt các animation lặp vô hạn (tốn pin, gây repaint liên tục). */
+@media (max-width: 767px), (hover: none) {
+  .aurora::before,
+  .aurora-dark::before,
+  .text-gradient {
+    animation: none;
+  }
+  .text-gradient {
+    background-size: 100% auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* Tiptap editor (admin rich text) */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: #a1a1aa;
+}
+
+.tiptap > * + * {
+  margin-top: 0.5rem;
+}
+
+.tiptap h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.tiptap h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.tiptap ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.tiptap ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+
+.tiptap li + li {
+  margin-top: 0.25rem;
+}
+
+.tiptap blockquote {
+  border-left: 2px solid var(--color-brand-200);

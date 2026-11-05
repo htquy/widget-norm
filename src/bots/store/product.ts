@@ -1,3 +1,5 @@
+import { fold } from "@/domain/text";
+
 export interface Product {
   id: string;
   tenantId: string;
@@ -17,25 +19,6 @@ export interface Product {
 }
 
 export const MAX_DESCRIPTION_LENGTH = 4000;
-
-export const formatVnd = (n: number) => `${Math.round(n).toLocaleString("vi-VN")} ₫`;
-export const priceText = (n: number) => (n > 0 ? formatVnd(n) : "Liên hệ");
-
-/** Bỏ dấu tiếng Việt + chữ thường — dùng cho tìm kiếm và bot theo luật */
-export const fold = (s: string) =>
-  s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d");
-
-const STOP = new Set(
-  "cho toi minh em anh chi ban shop co khong ko la gi nao the nhu va voi cua can muon xem hoi tu van mua ban giup nhe a ah oi duoc dang con bao nhieu gia".split(" "),
-);
-
-export function keywords(text: string): string[] {
-  return [...new Set(fold(text).split(/[^a-z0-9]+/).filter((w) => w.length >= 2 && !STOP.has(w)))];
-}
 
 /** Điểm khớp đơn giản (không cần full-text search): tên ×3, danh mục/tag ×2, mô tả ×1 */
 export function scoreProduct(p: Product, words: string[]): number {

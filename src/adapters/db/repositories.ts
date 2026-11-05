@@ -1,5 +1,6 @@
 import { and, desc, eq, gt, gte, ilike, inArray, lt, lte, or, sql } from "drizzle-orm";
 import type {
+  AccountRepository,
   AdminUserRepository,
   BookingRepository,
   ConversationRepository,
@@ -9,7 +10,6 @@ import type {
   InsightRepository,
   LeadRepository,
   LlmCallRepository,
-  ProductRepository,
   ServiceRepository,
   TenantRepository,
 } from "@/application/ports";
@@ -17,11 +17,13 @@ import type { Booking, BookingStatus } from "@/domain/booking";
 import type { Conversation, HandoffStatus } from "@/domain/conversation";
 import type { DecisionLabel, HandoffReason } from "@/domain/decision";
 import type { EventType } from "@/domain/events";
+import type { Account, PlanId } from "@/domain/account";
 import type { Lead, LeadSource, LeadStatus } from "@/domain/lead";
+import { normalizeSettings, type BotKind, type Tenant } from "@/domain/tenant";
 import type { DB } from "@/infrastructure/db/client";
-import { adminUsers, bookings, conversations, events, leads, llmCalls, messageInsights, products, services, tenants } from "@/infrastructure/db/schema";
+import { accounts, adminUsers, bookings, conversations, events, leads, llmCalls, messageInsights, services, tenants } from "@/infrastructure/db/schema";
 
-const toLead = (r: typeof leads.$inferSelect): Lead => ({ ...r, status: r.status as LeadStatus, source: r.source as LeadSource });
+const toLead = (r: typeof leads.$inferSelect): Lead => ({ ...r, status: r.status as LeadStatus, source: r.source as LeadSource, meta: r.meta ?? {} });
 const toConv = (r: typeof conversations.$inferSelect): Conversation => ({
   ...r,
   channel: r.channel as Conversation["channel"],
@@ -36,63 +38,46 @@ const inRange = (col: TsCol, range?: DateRange) => (range ? [gte(col, range.from
 const dayOf = (col: TsCol) => sql<string>`to_char(${col} at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD')`;
 const count = () => sql<number>`count(*)`.mapWith(Number);
 
+const toTenant = (r: typeof tenants.$inferSelect): Tenant => ({ ...r, kind: r.kind as BotKind, settings: normalizeSettings(r.settings) });
+const toAccount = (r: typeof accounts.$inferSelect): Account => ({ ...r, plan: r.plan as PlanId });
+
+export const accountRepo = (db: DB): AccountRepository => ({
+  async create(a) {
+    const [r] = await db.insert(accounts).values({ ...a, id: crypto.randomUUID() }).returning();
+    return toAccount(r);
+  },
+  async findById(id) {
+    const [r] = await db.select().from(accounts).where(eq(accounts.id, id)).limit(1);
+    return r ? toAccount(r) : null;
+  },
+});
+
 export const tenantRepo = (db: DB): TenantRepository => ({
   async findBySlug(slug) {
     const [r] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
-    return r ?? null;
+    return r ? toTenant(r) : null;
   },
   async findById(id) {
     const [r] = await db.select().from(tenants).where(eq(tenants.id, id)).limit(1);
-    return r ?? null;
+    return r ? toTenant(r) : null;
+  },
+  async listByAccount(accountId) {
+    return (await db.select().from(tenants).where(eq(tenants.accountId, accountId)).orderBy(tenants.createdAt)).map(toTenant);
+  },
+  async create(t) {
+    const [r] = await db.insert(tenants).values({ ...t, id: crypto.randomUUID() }).returning();
+    return toTenant(r);
+  },
+  async slugExists(slug) {
+    const [r] = await db.select({ id: tenants.id }).from(tenants).where(eq(tenants.slug, slug)).limit(1);
+    return !!r;
   },
   async updateSettings(id, settings) {
     await db.update(tenants).set({ settings, name: settings.shopName }).where(eq(tenants.id, id));
   },
-});
-
-export const productRepo = (db: DB): ProductRepository => ({
-  async list(tenantId, f = {}) {
-    const conds = [eq(products.tenantId, tenantId)];
-    if (f.activeOnly) conds.push(eq(products.active, true));
-    if (f.category) conds.push(eq(products.category, f.category));
-    if (f.search) {
-      const q = `%${f.search}%`;
-      conds.push(or(ilike(products.name, q), ilike(products.sku, q), ilike(products.category, q))!);
-    }
-    return db.select().from(products).where(and(...conds)).orderBy(products.category, products.name);
-  },
-  async findById(tenantId, id) {
-    const [r] = await db.select().from(products).where(and(eq(products.tenantId, tenantId), eq(products.id, id))).limit(1);
-    return r ?? null;
-  },
-  async findManyByIds(tenantId, ids) {
-    if (ids.length === 0) return [];
-    const rows = await db.select().from(products).where(and(eq(products.tenantId, tenantId), inArray(products.id, ids)));
-    return ids.map((id) => rows.find((p) => p.id === id)).filter((p): p is (typeof rows)[number] => !!p);
-  },
-  async create(p) {
-    const [r] = await db.insert(products).values({ ...p, id: crypto.randomUUID() }).returning();
-    return r;
-  },
-  async update(tenantId, id, patch) {
-    await db.update(products).set(patch).where(and(eq(products.tenantId, tenantId), eq(products.id, id)));
-  },
-  async delete(tenantId, id) {
-    await db.delete(products).where(and(eq(products.tenantId, tenantId), eq(products.id, id)));
-  },
-  async upsertBySku(p) {
-    const [existing] = await db.select({ id: products.id }).from(products).where(and(eq(products.tenantId, p.tenantId), eq(products.sku, p.sku))).limit(1);
-    if (existing) {
-      // Ô trống trong file nhập = giữ dữ liệu cũ
-      const { description, imageUrl, url, tags, ...rest } = p;
-      await db
-        .update(products)
-        .set({ ...rest, ...(description && { description }), ...(imageUrl && { imageUrl }), ...(url && { url }), ...(tags.length > 0 && { tags }) })
-        .where(eq(products.id, existing.id));
-      return "updated";
-    }
-    await db.insert(products).values({ ...p, id: crypto.randomUUID() });
-    return "created";
+  async countByKind() {
+    const rows = await db.select({ kind: tenants.kind, n: count() }).from(tenants).where(eq(tenants.status, "active")).groupBy(tenants.kind);
+    return Object.fromEntries(rows.map((r) => [r.kind, r.n]));
   },
 });
 
@@ -263,7 +248,7 @@ export const conversationRepo = (db: DB): ConversationRepository => {
 
 export const eventRepo = (db: DB): EventRepository => ({
   async record(e) {
-    await db.insert(events).values({ tenantId: e.tenantId, visitorId: e.visitorId, type: e.type, conversationId: e.conversationId ?? null, refId: e.refId ?? null, value: e.value ?? null });
+    await db.insert(events).values({ tenantId: e.tenantId, visitorId: e.visitorId, type: e.type, variant: e.variant ?? "", conversationId: e.conversationId ?? null, refId: e.refId ?? null, value: e.value ?? null });
   },
   async visitorsByType(tenantId, range) {
     const rows = await db
@@ -281,6 +266,13 @@ export const eventRepo = (db: DB): EventRepository => ({
       .where(and(eq(events.tenantId, tenantId), ...inRange(events.createdAt, range)))
       .groupBy(day, events.type);
     return rows.map((r) => ({ ...r, type: r.type as EventType }));
+  },
+  async visitorsByVariant(tenantId, range) {
+    return db
+      .select({ type: events.type, variant: events.variant, visitors: sql<number>`count(distinct ${events.visitorId})`.mapWith(Number) })
+      .from(events)
+      .where(and(eq(events.tenantId, tenantId), ...inRange(events.createdAt, range)))
+      .groupBy(events.type, events.variant);
   },
   async topRefs(tenantId, type, range, limit) {
     const visitors = sql<number>`count(distinct ${events.visitorId})`.mapWith(Number);
@@ -360,6 +352,10 @@ export const adminUserRepo = (db: DB): AdminUserRepository => ({
   async findByEmail(email) {
     const [r] = await db.select().from(adminUsers).where(eq(adminUsers.email, email)).limit(1);
     return r ?? null;
+  },
+  async create(u) {
+    const [r] = await db.insert(adminUsers).values({ ...u, id: crypto.randomUUID() }).returning();
+    return r;
   },
 });
 

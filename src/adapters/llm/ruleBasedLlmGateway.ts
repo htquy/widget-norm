@@ -1,5 +1,5 @@
 import type { ChatTool, LlmGateway, LlmTurnResult } from "@/application/ports";
-import { fold, keywords } from "@/domain/product";
+import { fold, keywords } from "@/domain/text";
 
 /** Đoạn kiến thức shop khớp câu hỏi nhất (theo số từ khoá trùng) — trả nguyên văn, không bịa */
 export function bestKnowledgeParagraph(knowledge: string, question: string): string | null {

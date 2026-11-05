@@ -1,0 +1,3 @@
+sku,name,width_mm,height_mm,thickness_mm,pieces_per_box,price_per_m2,finish,usage,style,color,stock,texture_url,description,image_urls
+GR-6060-01,Granite muối tiêu,600,600,10,4,199000,matte,floor,granite chống trơn,xám muối tiêu,250,,"Granite bề mặt mờ, chống trơn tốt, chịu mài mòn cao. Hợp sân, hiên, nhà xưởng, cửa hàng đông người qua lại.",
+OP-3060-02,Ốp tường men xanh ngọc,300,600,8,8,175000,glossy,wall,hiện đại phòng tắm,xanh ngọc,180,,"Gạch ốp tường men bóng màu xanh ngọc, dễ lau chùi, hợp phòng tắm và bếp. Chỉ dùng ốp tường.",https://cdn.example.com/op-3060-02-1.jpg|https://cdn.example.com/op-3060-02-2.jpg

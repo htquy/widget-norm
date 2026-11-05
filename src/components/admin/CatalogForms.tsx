@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { importProductsAction, saveProductAction, saveServiceAction } from "@/app/admin/actions";
-import { MAX_DESCRIPTION_LENGTH } from "@/domain/product";
+import { MAX_DESCRIPTION_LENGTH } from "@/bots/store/product";
 import { submitWith } from "./form";
 import { Status } from "./LeadEditForm";
 import { Field, btnPrimary, btnSecondary, fieldCls } from "./ui";

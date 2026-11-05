@@ -1,6 +1,7 @@
 import { DomainError } from "@/domain/errors";
-import { MAX_DESCRIPTION_LENGTH, keywords, priceText, scoreProduct, type Product } from "@/domain/product";
-import type { NewProduct, NewService, ProductRepository, ServiceRepository } from "../ports";
+import { keywords, priceText } from "@/domain/text";
+import { MAX_DESCRIPTION_LENGTH, scoreProduct, type Product } from "./product";
+import type { NewProduct, ProductRepository } from "./repository";
 
 /** Thẻ sản phẩm gửi cho widget (không lộ trường nội bộ) */
 export interface ProductCard {
@@ -29,7 +30,7 @@ export const toCard = (p: Product): ProductCard => ({
   summary: p.description.slice(0, 160),
 });
 
-export function makeCatalog(deps: { products: ProductRepository; services: ServiceRepository }) {
+export function makeCatalog(deps: { products: ProductRepository }) {
   return {
     list: (tenantId: string, filter?: { activeOnly?: boolean; search?: string; category?: string }) => deps.products.list(tenantId, filter),
     get: (tenantId: string, id: string) => deps.products.findById(tenantId, id),
@@ -99,16 +100,6 @@ export function makeCatalog(deps: { products: ProductRepository; services: Servi
       return { created, updated, errors };
     },
 
-    /* ---------- Dịch vụ (dùng cho đặt lịch) ---------- */
-    services: (tenantId: string, activeOnly = false) => deps.services.list(tenantId, activeOnly),
-    service: (tenantId: string, id: string) => deps.services.findById(tenantId, id),
-    async saveService(tenantId: string, id: string | null, s: Omit<NewService, "tenantId">) {
-      if (!s.name.trim()) throw new DomainError("BAD_SERVICE", "Nhập tên dịch vụ");
-      if (s.durationMin < 5 || s.durationMin > 600) throw new DomainError("BAD_SERVICE", "Thời lượng từ 5 đến 600 phút");
-      if (id) await deps.services.update(tenantId, id, s);
-      else await deps.services.create({ ...s, tenantId });
-    },
-    removeService: (tenantId: string, id: string) => deps.services.delete(tenantId, id),
   };
 }
 

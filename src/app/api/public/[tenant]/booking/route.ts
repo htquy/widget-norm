@@ -13,7 +13,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ tenant: string 
     const view = url.searchParams.get("view");
     const serviceId = url.searchParams.get("serviceId") ?? "";
     if (view === "services") {
-      const list = await c.catalog.services(tenant.id, true);
+      const list = await c.services.list(tenant.id, true);
       return NextResponse.json({ services: list.map((s) => ({ id: s.id, name: s.name, durationMin: s.durationMin, price: s.price, description: s.description })) });
     }
     if (view === "days") return NextResponse.json({ days: await c.bookings.availableDays(tenant, serviceId, 14) });

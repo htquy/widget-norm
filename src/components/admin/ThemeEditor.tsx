@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { saveThemeAction } from "@/app/admin/actions";
-import type { PublicConfig } from "@/application/use-cases/tenants";
+import type { PublicConfig as BaseConfig } from "@/application/use-cases/tenants";
 import { FONT_STACKS, contrastRatio, textOn, type WidgetTheme } from "@/domain/theme";
 import { ChatWidget, type PreviewData } from "@/components/widget/ChatWidget";
 import { submitWith } from "./form";
@@ -24,7 +24,7 @@ function Seg<T extends string>({ name, value, onChange, options }: { name: strin
   );
 }
 
-export function ThemeEditor({ tenantSlug, initial, greeting, base }: { tenantSlug: string; initial: PublicConfig; greeting: string; base: string }) {
+export function ThemeEditor({ tenantSlug, initial, greeting, base }: { tenantSlug: string; initial: BaseConfig; greeting: string; base: string }) {
   const [t, setT] = useState<WidgetTheme>(initial.theme);
   const [greet, setGreet] = useState(greeting);
   const [state, action, pending] = useActionState(saveThemeAction, undefined);
@@ -34,7 +34,7 @@ export function ThemeEditor({ tenantSlug, initial, greeting, base }: { tenantSlu
 
   const preview: PreviewData = useMemo(
     () => ({
-      config: { ...initial, greeting: greet, theme: t },
+      config: { ...initial, ext: { variant: "visualizer" }, greeting: greet, theme: t },
       messages: [
         { id: "p1", role: "user", text: "Da dầu mụn nên dùng sữa rửa mặt nào ạ?", at: "" },
         {

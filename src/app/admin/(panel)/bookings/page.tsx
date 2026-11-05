@@ -25,7 +25,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   const c = await app();
   const [bookings, services] = await Promise.all([
     c.bookings.list(s.tenantId, { range: { from: atLocal(from, "00:00"), to: atLocal(addDays(from, span), "00:00") }, status }),
-    c.catalog.services(s.tenantId),
+    c.services.list(s.tenantId),
   ]);
   const svc = new Map(services.map((x) => [x.id, x]));
   const byDay = new Map<string, typeof bookings>();
@@ -81,7 +81,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
           </select>
         </label>
         <button className={btnSecondary}>Lọc</button>
-        <Link href="/admin/products#services" className="ml-auto self-center text-[13px] underline">
+        <Link href="/admin/services" className="ml-auto self-center text-[13px] underline">
           Quản lý dịch vụ đặt lịch
         </Link>
       </form>

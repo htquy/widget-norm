@@ -1,0 +1,43 @@
+{
+  "baseUrl": "https://huggingface.co",
+  "models": [
+    {
+      "id": "Xenova/slimsam-77-uniform",
+      "role": "Tách vùng sàn/tường theo điểm chạm của khách (interactive segmentation)",
+      "license": "apache-2.0",
+      "commercial": true,
+      "files": [
+        "config.json",
+        "preprocessor_config.json",
+        "onnx/vision_encoder_quantized.onnx",
+        "onnx/vision_encoder_fp16.onnx",
+        "onnx/prompt_encoder_mask_decoder_quantized.onnx",
+        "onnx/prompt_encoder_mask_decoder_fp16.onnx"
+      ]
+    },
+    {
+      "id": "onnx-community/depth-anything-v2-small",
+      "role": "Ước lượng độ sâu để dựng mặt phẳng và phối cảnh",
+      "license": "apache-2.0",
+      "commercial": true,
+      "files": [
+        "config.json",
+        "preprocessor_config.json",
+        "onnx/model_quantized.onnx",
+        "onnx/model_fp16.onnx"
+      ]
+    },
+    {
+      "id": "Xenova/segformer-b0-finetuned-ade-512-512",
+      "role": "Tự nhận diện sàn/tường (CHỈ dùng prototype/R&D: giấy phép NVIDIA + dữ liệu ADE20K không cho thương mại)",
+      "license": "other (NVIDIA Source Code License)",
+      "commercial": false,
+      "files": [
+        "config.json",
+        "preprocessor_config.json",
+        "onnx/model_quantized.onnx",
+        "onnx/model_fp16.onnx"
+      ]
+    }
+  ]
+}

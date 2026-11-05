@@ -1,5 +1,5 @@
 import { DECISION_LABEL_TEXT, type DecisionLabel } from "@/domain/decision";
-import { keywords } from "@/domain/product";
+import { keywords } from "@/domain/text";
 import type { DateRange, HandledBy, InsightRepository, LlmGateway } from "../ports";
 
 export const HANDLED_BY_LABELS: Record<HandledBy, string> = {

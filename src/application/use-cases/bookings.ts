@@ -12,7 +12,7 @@ import {
 import { newEntry } from "@/domain/conversation";
 import { DomainError } from "@/domain/errors";
 import { normalizeVnPhone } from "@/domain/lead";
-import { formatVnd } from "@/domain/product";
+import { formatVnd } from "@/domain/text";
 import type { Tenant } from "@/domain/tenant";
 import { withLock } from "../locks";
 import type { BookingRepository, ConversationRepository, DateRange, EventRepository, LeadRepository, Notifier, ServiceRepository } from "../ports";
@@ -98,6 +98,7 @@ export function makeBookings(deps: {
         source: "booking",
         status: "new",
         wonValue: null,
+        meta: { serviceId: service.id },
       });
       await deps.events.record({ tenantId: tenant.id, visitorId: input.visitorId, type: "booking_created", conversationId: input.conversationId, refId: service.id, value: service.price || null });
 

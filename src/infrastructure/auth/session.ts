@@ -8,6 +8,9 @@ const MAX_AGE = 7 * 24 * 3600;
 
 export interface Session {
   userId: string;
+  /** Tài khoản sở hữu các bot */
+  accountId: string;
+  /** Bot đang quản lý (đổi ở menu chọn bot; luôn thuộc accountId — kiểm tra khi đổi) */
   tenantId: string;
   name: string;
 }
@@ -42,14 +45,24 @@ export async function getSession(): Promise<Session | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
-    return { userId: String(payload.userId), tenantId: String(payload.tenantId), name: String(payload.name) };
+    // Phiên của bản cũ (chưa có accountId) coi như hết hạn
+    if (!payload.accountId) return null;
+    return { userId: String(payload.userId), accountId: String(payload.accountId), tenantId: String(payload.tenantId ?? ""), name: String(payload.name) };
   } catch {
     return null;
   }
 }
 
-/** Dùng trong trang/server action admin: chưa đăng nhập thì chuyển về trang login. */
+/** Dùng trong trang/server action admin: chưa đăng nhập → trang login; chưa có bot → trang tạo bot. */
 export async function requireSession(): Promise<Session> {
+  const s = await getSession();
+  if (!s) redirect("/admin/login");
+  if (!s.tenantId) redirect("/admin/bots");
+  return s;
+}
+
+/** Chỉ cần đăng nhập (trang quản lý tài khoản / tạo bot) */
+export async function requireAccount(): Promise<Session> {
   const s = await getSession();
   if (!s) redirect("/admin/login");
   return s;

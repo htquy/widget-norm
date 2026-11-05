@@ -1,11 +1,13 @@
 "use client";
 
-import type { ProductCard } from "@/application/use-cases/catalog";
-import type { PublicConfig } from "@/application/use-cases/tenants";
+import type { ProductCard } from "@/bots/store/catalog";
+import type { PublicConfig as BaseConfig } from "@/application/use-cases/tenants";
 import type { Slot } from "@/domain/booking";
 import type { ConversationMode, TranscriptEntry } from "@/domain/conversation";
 
-export type { ProductCard, PublicConfig, Slot };
+export type { ProductCard, Slot };
+/** Cấu hình widget: phần chung + phần riêng của module bot (ext) */
+export type PublicConfig = BaseConfig & { ext: Record<string, unknown> };
 export type Entry = Omit<TranscriptEntry, "meta">;
 
 export interface ServiceItem {
@@ -29,8 +31,8 @@ export function widgetApi(tenant: string, visitorId: string) {
   const q = (o: Record<string, string>) => new URLSearchParams({ visitorId, ...o }).toString();
   return {
     config: (origin: string | null) =>
-      call<{ config: PublicConfig; conversationId: string; mode: ConversationMode; rating: number | null; transcript: Entry[]; products: ProductCard[] }>(`${base}/config?${q(origin ? { origin } : {})}`),
-    chat: (text: string) => post<{ conversationId: string; mode: ConversationMode; reply: Entry | null; products: ProductCard[] }>("chat", { text }),
+      call<{ config: PublicConfig; conversationId: string; mode: ConversationMode; rating: number | null; transcript: Entry[]; products: unknown[] }>(`${base}/config?${q(origin ? { origin } : {})}`),
+    chat: (text: string) => post<{ conversationId: string; mode: ConversationMode; reply: Entry | null; products: unknown[]; extras: Record<string, unknown> }>("chat", { text }),
     poll: (conversationId: string, after: string | null) => call<{ entries: Entry[]; mode: ConversationMode }>(`${base}/messages?${q({ conversationId, ...(after ? { after } : {}) })}`),
     lead: (body: { conversationId: string | null; name: string; phone: string; email: string; note: string }) => post<{ ok: true }>("lead", body),
     callback: (body: { conversationId: string; name: string; phone: string; note: string }) => post<{ ok: true }>("handoff", body),

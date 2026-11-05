@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BOOKING_STATUS_LABELS, type BookingStatus } from "@/domain/booking";
 import { LEAD_STATUS_LABELS, type LeadStatus } from "@/domain/lead";
-import { formatVnd } from "@/domain/product";
+import { formatVnd } from "@/domain/text";
 import { requireSession } from "@/infrastructure/auth/session";
 import { app } from "@/infrastructure/container";
 import { BarList, DailyBars, DailyLines, FunnelChart, S1, S2, S3, S4 } from "@/components/admin/Charts";
@@ -14,7 +14,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const days = parseDays((await searchParams).days);
   const c = await app();
   const range = rangeFor(days);
-  const [d, ai, ratings, counts] = await Promise.all([c.analytics.dashboard(s.tenantId, range), c.llmCalls.summary(s.tenantId, range), c.support.ratings(s.tenantId, range), c.support.counts(s.tenantId)]);
+  const tenant = (await c.tenants.byId(s.tenantId))!;
+  const [d, ai, ratings, counts] = await Promise.all([c.analytics.dashboard(tenant, range), c.llmCalls.summary(s.tenantId, range), c.support.ratings(s.tenantId, range), c.support.counts(s.tenantId)]);
   const k = d.kpis;
   const noLlm = ai.turns ? (ai.turns - ai.llmTurns) / ai.turns : 0;
 

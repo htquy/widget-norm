@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Widget Norm
 
-Kế hoạch, tiến độ, việc còn dở: **[docs/PLAN.md](docs/PLAN.md)** — làm xong việc nào thì tick ở mục 3 và ghi một dòng vào mục 4.
+Kế hoạch, kiến trúc hub đa chatbot, lộ trình bot tương lai: **[docs/PLAN.md](docs/PLAN.md)** — làm xong việc nào thì tick ở mục 3 và ghi một dòng vào mục 6. Kế hoạch LLM/jev: **[docs/PLAN-LLM.md](docs/PLAN-LLM.md)**. Trước khi thêm bot/bảng/trang marketing, đọc `.claude/skills/hub-architecture/SKILL.md` và `hub-landing-design/SKILL.md`.
 
 ```bash
 npm run typecheck && npm test

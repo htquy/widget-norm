@@ -1,16 +1,16 @@
 import Link from "next/link";
-import { priceText } from "@/domain/product";
+import { priceText } from "@/domain/text";
 import { requireSession } from "@/infrastructure/auth/session";
 import { app } from "@/infrastructure/container";
-import { ImportProductsForm, ServiceForm } from "@/components/admin/CatalogForms";
+import { ImportProductsForm } from "@/components/admin/CatalogForms";
 import { Badge, Card, Empty, PageHeader, btnPrimary, btnSecondary, fieldCls } from "@/components/admin/ui";
-import { deleteServiceAction, toggleProductAction } from "../../actions";
+import { toggleProductAction } from "../../actions";
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const s = await requireSession();
   const q = (await searchParams).q?.trim();
   const c = await app();
-  const [products, services] = await Promise.all([c.catalog.list(s.tenantId, { search: q || undefined }), c.catalog.services(s.tenantId)]);
+  const products = await c.catalog.list(s.tenantId, { search: q || undefined });
 
   return (
     <>
@@ -88,24 +88,6 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         </div>
       </div>
 
-      <Card id="services" title="Dịch vụ đặt lịch" className="mt-6" right={<Link href="/admin/bookings" className="text-[13px] underline">Xem lịch hẹn</Link>}>
-        <p className="mb-3 text-[13px] text-[var(--fg-muted)]">Khách chọn dịch vụ trong form đặt lịch của widget. Giờ mở cửa, sức chứa và khoảng cách giữa các khung giờ chỉnh ở Cài đặt.</p>
-        <ul className="space-y-3">
-          {services.map((sv) => (
-            <li key={sv.id} className="rounded-lg border border-[var(--border)] p-3">
-              <ServiceForm service={{ id: sv.id, name: sv.name, durationMin: sv.durationMin, price: sv.price, description: sv.description, active: sv.active }} />
-              <form action={deleteServiceAction} className="mt-2">
-                <input type="hidden" name="id" value={sv.id} />
-                <button className="min-h-9 text-[13px] text-[var(--danger)] underline">Xoá dịch vụ</button>
-              </form>
-            </li>
-          ))}
-          <li className="rounded-lg border border-dashed border-[var(--border)] p-3">
-            <p className="mb-2 text-[13px] font-medium">Thêm dịch vụ mới</p>
-            <ServiceForm />
-          </li>
-        </ul>
-      </Card>
     </>
   );
 }

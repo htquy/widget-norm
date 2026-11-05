@@ -1,6 +1,6 @@
 import type { DecisionGateway } from "@/application/ports";
 import type { Decision, DecisionLabel } from "@/domain/decision";
-import { fold } from "@/domain/product";
+import { fold } from "@/domain/text";
 
 /**
  * Phân loại theo luật (tiếng Việt, bỏ dấu) — dự phòng khi jev lỗi/hết hạn mức, và dùng khi chưa có API key.

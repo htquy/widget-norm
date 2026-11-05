@@ -14,6 +14,8 @@ export function makeLeads(deps: { leads: LeadRepository; events: EventRepository
       email?: string;
       note: string;
       source: LeadSource;
+      meta?: Record<string, string | number>;
+      variant?: string;
     }): Promise<Lead> {
       const phone = normalizeVnPhone(input.phone);
       const name = input.name.trim().slice(0, 80);
@@ -30,8 +32,9 @@ export function makeLeads(deps: { leads: LeadRepository; events: EventRepository
         source: input.source,
         status: "new",
         wonValue: null,
+        meta: input.meta ?? {},
       });
-      await deps.events.record({ tenantId: input.tenant.id, visitorId: input.visitorId, type: "lead_created", conversationId: input.conversationId });
+      await deps.events.record({ tenantId: input.tenant.id, visitorId: input.visitorId, type: "lead_created", conversationId: input.conversationId, variant: input.variant ?? "", value: typeof input.meta?.quoteTotal === "number" ? input.meta.quoteTotal : null });
       const text = [`Khách để lại liên hệ — ${input.tenant.settings.shopName}`, `${lead.name} — ${lead.phone}${email ? ` — ${email}` : ""}`, lead.note && `Ghi chú: ${lead.note}`, `${deps.baseUrl}/admin/leads/${lead.id}`]
         .filter(Boolean)
         .join("\n");

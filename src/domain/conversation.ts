@@ -15,7 +15,10 @@ export interface TranscriptEntry {
   role: "user" | "assistant" | "agent" | "system";
   text: string;
   at: string;
+  /** Id các mục trong danh mục của bot (sản phẩm, mẫu gạch...) — widget hiện thẻ tương ứng */
   productIds?: string[];
+  /** Dữ liệu riêng của module bot kèm câu trả lời, vd { quoteId } của bot gạch */
+  extras?: Record<string, string>;
   action?: WidgetAction;
   agentName?: string;
   /** Khách đánh giá câu trả lời này: 1 = hữu ích, -1 = chưa tốt */

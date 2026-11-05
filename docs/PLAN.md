@@ -1,48 +1,89 @@
 # Kế hoạch Widget Norm
 
-Cập nhật: 2026-11-05
+Cập nhật: 2026-11-05 · Kế hoạch LLM/jev: [PLAN-LLM.md](PLAN-LLM.md)
 
-## 1. Bối cảnh
+## 1. Định hướng
 
-`widget-tile-visual` là chatbot cho cửa hàng gạch (xem thử gạch trên ảnh phòng, báo giá m²). Widget Norm tổng quát hoá thành **bot chung cho mọi cửa hàng** và bổ sung: đặt lịch, chuyển nhân viên + live chat, tuỳ biến giao diện, phân tích nhu cầu; đồng thời triển khai **Phase 2C** (tầng quyết định jev) của `widget-tile-visual/docs/PLAN-LLM.md`.
+Widget Norm là **web tập trung các loại chatbot để thương mại hoá**: khách hàng chọn chatbot đúng ngành, đăng ký dùng thử, dán một dòng mã vào website. Hiện có **2 chatbot** (store, tile); lộ trình thêm bot khác ở mục 5.
 
-## 2. Tầng quyết định (Phase 2C) — đã làm
+- Phần lõi dùng chung mọi bot: tầng quyết định jev + LLM, chống bịa, đặt lịch, chuyển nhân viên + live chat, phân tích nhu cầu, tuỳ biến giao diện widget, lead/CRM, tài khoản + gói cước.
+- Phần riêng từng bot (nghiệp vụ + dữ liệu): nằm trong một **module** `src/bots/<kind>/` và một **schema DB riêng**.
 
-| Quyết định | Nhãn | Hành động | Gọi LLM? |
-|---|---|---|---|
-| Vi phạm / ngoài phạm vi | `abuse`, `injection`, `off_topic` | Câu từ chối mẫu | Không |
-| Trả lời ngay | `greeting`, `thanks_bye`, `ask_contact`, `booking` | Mẫu (giờ mở cửa, địa chỉ…), mở form đặt lịch | Không |
-| Cần người | `human_request`, `complaint`, `not_in_data` | Thẻ liên hệ nhân viên, hộp *Cần hỗ trợ*, webhook | Không |
-| Cần LLM | `product_query`, `knowledge_query`, `needs_consult` | `simple` → model rẻ, `complex` → model mạnh | Có |
-| Leo thang | bot N lượt chưa giải quyết, 2 lượt tiêu cực liền | Chuyển nhân viên | Không |
+## 2. Kiến trúc hub
 
-- Ngưỡng tin cậy 0.6: thấp hơn → bỏ qua jev, gọi LLM mạnh (an toàn hơn từ chối nhầm).
-- jev lỗi/timeout 6 s → phân loại theo luật (`ruleDecisionGateway`), hội thoại không vỡ.
-- Đo: bảng `llm_calls` có `decision_label/confidence/model/latency/tokens` + `route`; dashboard hiện % lượt không cần LLM, tuyến xử lý.
-- Kết quả `npm run eval:decision` (2026-11-05, 24 câu): jev-router **24/24**, p50 2,8 s, p90 3,9 s; bộ luật 23/24.
+```
+src/domain            luật thuần dùng chung (booking, decision, theme, tenant, account, lead…) — không biết bot cụ thể
+src/application       use case dùng chung: chat (engine), bookings, support, insights, analytics, tenants/auth
+src/bots/types.ts     BotModule — điểm cắm giữa engine và nghiệp vụ ngành
+src/bots/<kind>/      meta.ts (giới thiệu) · module.ts (tool, prompt, grounding, API riêng) · repository.ts (schema riêng)
+                      widget/ (extension của khung chat) · admin/ (trang quản trị riêng) · demo.ts
+src/app/(site)        landing, /bots, /bots/[slug], /pricing, /signup  (thiết kế theo skill-pages)
+src/app/admin         quản trị: dùng chung + mục riêng theo loại bot (meta.adminNav)
+```
+
+### CSDL (một PostgreSQL, nhiều schema — xem `.claude/skills/hub-architecture`)
+
+| Schema | Bảng | Ai dùng |
+|---|---|---|
+| `public` | `accounts`, `tenants` (1 bot, có `kind`), `admin_users`, `conversations`, `leads` (cột `meta` jsonb cho dữ liệu riêng), `events`, `message_insights`, `llm_calls`, `services`, `bookings` | engine + use case dùng chung |
+| `store` | `products` | module store |
+| `tile` | `tiles`, `quotes`, `settings` (hao hụt, keo, ron, % A/B) | module tile |
+
+Quy tắc: mọi bảng có `tenant_id`; **không FK chéo schema**; module chỉ đọc/ghi schema của mình, dữ liệu chung đi qua port; thêm bot = thêm schema + DDL idempotent. DB của bản trước tự nâng cấp (bảng `products` được `SET SCHEMA store`, tenant cũ được gán account).
+
+### Thêm một loại bot mới (checklist)
+
+1. `src/domain/tenant.ts`: thêm `kind` vào `BOT_KINDS`.
+2. `src/bots/<kind>/`: `meta.ts` (nội dung giới thiệu), `repository.ts` + bảng trong `schema.ts` (`pgSchema("<kind>")`, DDL, RLS), `module.ts` (`BotModule`: tool, `promptLines`, `groundingFacts`, `shopSummary`, `cards`, `fallbackLlm`, `seedDemo`…).
+3. Đăng ký ở `src/bots/catalog.ts` (meta) và `src/infrastructure/container.ts` (module). Widget riêng (nếu cần): `widget/extension.tsx` + `src/components/widget/extensions.ts`. Admin riêng: trang + `meta.adminNav` + route wrapper trong `src/app/admin/(panel)`.
+4. Demo: `seedDemo` + seed trong `infrastructure/db/seed.ts`; test tích hợp ở `src/integration.test.ts`; thêm câu vào `scripts/eval-decision.ts`; xoá bot khỏi `src/bots/roadmap.ts`.
 
 ## 3. Gói việc
 
-- [x] Domain: booking (khung giờ, sức chứa, giờ VN), decision (`planRoute`), theme (tương phản WCAG), tenant chuẩn hoá cài đặt cũ
-- [x] Chat: jev → mẫu / handoff / LLM theo tầng, guard số tiền & SKU, recap khi đổi ngữ cảnh, tool `search_products`, `get_product_details`, `list_services`, `check_availability`, `open_booking_form`, `request_human`
-- [x] Đặt lịch: API công khai (dịch vụ / ngày còn chỗ / khung giờ / đặt), khoá chống trùng, lead + ghi chú nội bộ + webhook
-- [x] Handoff + live chat: hộp *Cần hỗ trợ*, nhận chat, trả lời, trả lại bot, poll tin mới, kiểm tra quyền sở hữu hội thoại
-- [x] Widget: theme động, sáng/tối, thẻ sản phẩm, thẻ đặt lịch, thẻ nhân viên, 👍/👎, đánh giá sao, nhớ tên/SĐT, widget.js đọc cấu hình từ server, lời mời, tự mở
-- [x] Admin: tổng quan, hội thoại, phân tích nhu cầu (+ báo cáo AI), lịch hẹn, lead, sản phẩm & dịch vụ (+CSV), giao diện widget (xem trước), cài đặt & mã nhúng, xuất CSV
-- [x] Test: 40 test (domain, jev fetch giả, tích hợp PGlite); script đánh giá jev
-- [ ] 2A: gọi qua AI Gateway `skill-pages` (route, chính sách PII, ngắt mạch, hạn mức theo shop) — hiện gọi thẳng OpenRouter
-- [ ] 2B.3: khoá hội thoại/đặt lịch + rate limit sang Postgres/Redis để chạy nhiều instance
-- [ ] Streaming câu trả lời (SSE) — giảm cảm giác chờ khi có jev (+2–4 s)
-- [ ] Kênh Zalo OA / Messenger (domain đã có `channel`)
-- [ ] Nhắc lịch hẹn (SMS/Zalo ZNS) trước giờ hẹn; khách tự huỷ/đổi lịch qua link
-- [ ] Nhiều nhân viên: phân công hội thoại, thông báo trình duyệt khi có khách cần hỗ trợ
-- [ ] Bộ đánh giá 50–100 hội thoại đầy đủ (so sánh Haiku / GLM / DeepSeek cho câu trả lời, không chỉ phân loại)
+- [x] Lõi chat: jev → mẫu / handoff / LLM theo độ khó, guard, recap, tool đặt lịch & gọi nhân viên
+- [x] Đặt lịch, handoff + live chat, phân tích nhu cầu (+ báo cáo AI), giao diện widget có xem trước, lead, CSV
+- [x] **Hub đa bot**: `BotModule`, tài khoản → nhiều bot, chọn/tạo bot, giới hạn theo gói, schema DB theo bot, nâng cấp DB cũ
+- [x] **Bot store** (bán hàng & đặt lịch) và **bot tile** (tư vấn & xem thử gạch: báo giá m², trình xem thử SlimSAM, A/B test) — gộp từ widget-tile-visual
+- [x] **Website thương mại**: landing, danh mục chatbot, trang giới thiệu từng bot, bảng giá, đăng ký dùng thử, hết hạn dùng thử chặn widget
+- [x] Skill dự án: `.claude/skills/hub-architecture`, `hub-landing-design`
+- [x] 54 test (domain, jev, tích hợp PGlite nhiều bot, tài khoản/gói)
+- [ ] **Thanh toán & kích hoạt gói** (nối hub thanh toán của skill-pages: SePay/VietQR, `check-access`) — hiện nâng cấp qua liên hệ
+- [ ] **SSO** dùng chung tài khoản skill-pages (OAuth2 PKCE) thay đăng nhập riêng
+- [ ] Hạn mức tin nhắn theo gói (`messagesPerMonth`) — hiện mới là giới hạn số bot
+- [ ] 2A: gọi qua AI Gateway `skill-pages`; 2B.3: khoá/rate limit sang Postgres/Redis (xem PLAN-LLM)
+- [ ] Streaming câu trả lời (SSE); kênh Zalo OA / Messenger
+- [ ] Nhắc lịch hẹn (SMS/Zalo ZNS); khách tự huỷ/đổi lịch
+- [ ] Nhiều nhân viên: phân công hội thoại, thông báo trình duyệt
+- [ ] Ảnh phòng gửi kèm câu hỏi cho LLM (bản cũ của bot gạch có, chưa chuyển sang engine chung)
 
-## 4. Nhật ký (mới nhất ở trên)
+## 4. Quyết định cần lưu ý
 
-- 2026-11-05 — Khởi tạo dự án từ kiến trúc widget-tile-visual; làm toàn bộ mục đã tick ở trên; chạy thật với OpenRouter (jev-router + deepseek-v4.1-flash / claude-haiku-5.5).
+- Tên thương hiệu nền tảng đặt ở `src/lib/site.ts` (hiện "Widget Norm") — đổi một chỗ.
+- Bảng giá là tham khảo (`src/domain/account.ts`, `PLANS`); chưa tích hợp thanh toán.
+- Số "cửa hàng đang dùng" trên landing chỉ đếm bot thật (loại trừ bot demo).
+- `OPENROUTER_DATA_COLLECTION=deny` là mặc định; `.env.local` dev đang `allow` để jev-router chọn được mọi nhà cung cấp — đổi trước khi có dữ liệu khách thật.
 
-## 5. Bàn giao
+## 5. Lộ trình chatbot tương lai
 
-- Dữ liệu demo nằm ở `./data/pglite` (xoá thư mục để seed lại).
-- `.env.local` khi dev đang dùng `OPENROUTER_DATA_COLLECTION=allow` — đổi sang `deny` trước khi có dữ liệu khách thật.
+Chi tiết (schema dự kiến, phần dùng lại) ở `src/bots/roadmap.ts` — landing hiển thị mục "Sắp ra mắt" từ đó.
+
+| Bot | Nghiệp vụ riêng → schema | Dùng lại từ lõi |
+|---|---|---|
+| Đặt bàn & thực đơn nhà hàng | `menu_items`, `tables`, `reservations` | jev, live chat, đặt lịch (khung giờ), phân tích |
+| Tư vấn tuyển sinh & khoá học | `courses`, `classes`, `placements` | jev, đặt lịch học thử, lead |
+| Tư vấn bất động sản | `listings`, `viewings`, `loan_scenarios` | jev, đặt lịch xem nhà, chuyển nhân viên |
+| Đặt khám phòng khám | `doctors`, `specialties`, `visits` | jev, đặt lịch theo tài nguyên (bác sĩ) |
+| Chăm sóc sau bán & bảo hành | `warranties`, `tickets`, `kb_articles` | jev, live chat, chuyển nhân viên |
+
+Việc nền tảng cần làm trước khi nhân rộng bot: đặt lịch **theo tài nguyên** (bác sĩ/bàn/phòng, hiện chỉ có sức chứa chung), hạn mức tin nhắn theo gói, và nhập/đồng bộ danh mục từ Haravan/Sapo/Shopify.
+
+## 6. Nhật ký (mới nhất ở trên)
+
+- 2026-11-05 — Chuyển thành web tập trung nhiều chatbot: DB multi-schema (public/store/tile), `BotModule`, gộp widget-tile-visual thành bot `tile`, tài khoản + gói + đăng ký, landing/trang bot/bảng giá theo skill-pages, đưa PLAN-LLM vào docs. Chạy thật: cả 2 bot qua jev + LLM, upgrade DB cũ, đăng ký, chuyển bot, A/B.
+- 2026-11-05 — Khởi tạo Widget Norm từ kiến trúc widget-tile-visual: lõi chat + jev, đặt lịch, handoff/live chat, giao diện widget, phân tích nhu cầu.
+
+## 7. Bàn giao
+
+- Dữ liệu demo ở `./data/pglite` (xoá để seed lại: tài khoản `admin@demo.vn`/`demo1234` có 2 bot `lumi-demo`, `gach-dep-demo`).
+- Model ONNX của trình xem thử gạch (~120 MB) không nằm trong git: `npm run models`.
+- Ảnh vân gạch/ảnh phối cảnh lưu `./storage` hoặc Cloudflare R2 (biến `R2_*`, xem `.env.example`).

@@ -1,34 +1,46 @@
 /**
  * Test tích hợp trên PGlite (Postgres trong bộ nhớ) với repository thật:
  * tầng quyết định jev → mẫu / chuyển nhân viên / LLM theo độ khó, jev lỗi → luật, guard chống bịa,
- * live chat (bot im khi nhân viên nhận), đặt lịch chống trùng chỗ, cô lập 2 shop, báo cáo nhu cầu.
+ * live chat (bot im khi nhân viên nhận), đặt lịch chống trùng chỗ, cô lập 2 shop, báo cáo nhu cầu,
+ * và kiến trúc đa bot: tài khoản sở hữu nhiều bot, mỗi loại bot dùng schema riêng (store / tile).
  */
 import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
+  accountRepo,
+  adminUserRepo,
   bookingRepo,
   conversationRepo,
   eventRepo,
   insightRepo,
   leadRepo,
   llmCallRepo,
-  productRepo,
   serviceRepo,
+  tenantRepo,
 } from "@/adapters/db/repositories";
 import { RuleBasedLlmGateway } from "@/adapters/llm/ruleBasedLlmGateway";
 import { RuleDecisionGateway } from "@/adapters/llm/ruleDecisionGateway";
 import { LlmUnavailableError, type ChatTool, type DecisionGateway, type LlmGateway, type LlmTier, type LlmTurnResult, type Notifier } from "@/application/ports";
 import { makeBookings } from "@/application/use-cases/bookings";
-import { makeCatalog } from "@/application/use-cases/catalog";
+import { makeServices } from "@/application/use-cases/services";
+import { makeAuth, makeTenants } from "@/application/use-cases/tenants";
+import { makeCatalog } from "@/bots/store/catalog";
+import { makeStoreModule } from "@/bots/store/module";
+import { productRepo } from "@/bots/store/repository";
+import { makeTileCatalog } from "@/bots/tile/catalog";
+import { makeTileModule } from "@/bots/tile/module";
+import { makeQuotes } from "@/bots/tile/quotes";
+import { tileRepos } from "@/bots/tile/repository";
+import type { BotModule } from "@/bots/types";
 import { SAFE_TEXT, makeChat } from "@/application/use-cases/chat";
 import { makeInsights } from "@/application/use-cases/insights";
 import { makeLeads } from "@/application/use-cases/leads";
 import { makeSupport } from "@/application/use-cases/support";
 import { addDays, atLocal, localDate } from "@/domain/booking";
 import type { Decision } from "@/domain/decision";
-import { defaultSettings, type Tenant } from "@/domain/tenant";
+import { defaultSettings, type BotKind, type Tenant } from "@/domain/tenant";
 import type { DB } from "@/infrastructure/db/client";
 import * as schema from "@/infrastructure/db/schema";
 
@@ -68,17 +80,23 @@ const notifier: Notifier = { notify: async (_t, kind, text) => void notified.pus
 let db: DB;
 const shopA: Tenant = {
   id: "tenant-a",
+  accountId: "acc-1",
+  kind: "store",
+  status: "active",
   slug: "shop-a",
   name: "Shop A",
   settings: { ...defaultSettings("Shop A"), phone: "0901 111 222", knowledgeBase: "GIAO HÀNG\nPhí giao nội thành 20.000đ." },
   createdAt: new Date(),
 };
-const shopB: Tenant = { id: "tenant-b", slug: "shop-b", name: "Shop B", settings: defaultSettings("Shop B"), createdAt: new Date() };
+const shopB: Tenant = { id: "tenant-b", accountId: "acc-2", kind: "store", status: "active", slug: "shop-b", name: "Shop B", settings: defaultSettings("Shop B"), createdAt: new Date() };
+/** Bot gạch của cùng tài khoản acc-1 (dùng chung bảng public, riêng schema tile) */
+const tileShop: Tenant = { id: "tenant-t", accountId: "acc-1", kind: "tile", status: "active", slug: "gach-t", name: "Gạch T", settings: { ...defaultSettings("Gạch T"), knowledgeBase: "GIAO HÀNG\nMiễn phí giao nội thành cho đơn từ 20 m²." }, createdAt: new Date() };
 
 beforeAll(async () => {
   db = drizzle(new PGlite(), { schema }) as unknown as DB;
   for (const stmt of schema.DDL) await db.execute(sql.raw(stmt));
-  for (const t of [shopA, shopB]) await db.insert(schema.tenants).values({ id: t.id, slug: t.slug, name: t.name, settings: t.settings });
+  for (const t of [shopA, shopB, tileShop]) await db.insert(schema.tenants).values({ id: t.id, accountId: t.accountId, kind: t.kind, slug: t.slug, name: t.name, settings: t.settings });
+  await db.insert(schema.tiles).values({ id: "t-1", tenantId: "tenant-t", sku: "T-6060", name: "Vân đá thử", widthMm: 600, heightMm: 600, thicknessMm: 9, piecesPerBox: 4, pricePerM2: 200_000, finish: "matte", usage: ["floor"], style: "vân đá", color: "trắng", textureUrl: "/t.svg", description: "Gạch thử", stock: 50 });
   await db.insert(schema.products).values([
     { id: "a-p1", tenantId: "tenant-a", sku: "A-SRM-01", name: "Sữa rửa mặt dịu nhẹ", category: "Làm sạch", price: 189_000, description: "Cho da nhạy cảm", tags: ["da khô"] },
     { id: "b-p1", tenantId: "tenant-b", sku: "B-SECRET", name: "Sữa rửa mặt shop B", category: "Làm sạch", price: 999_000, description: "Bí mật shop B", tags: [] },
@@ -89,13 +107,20 @@ beforeAll(async () => {
 function setup(llm: LlmGateway, jev: DecisionGateway | null) {
   const events = eventRepo(db);
   const conversations = conversationRepo(db);
-  const catalog = makeCatalog({ products: productRepo(db), services: serviceRepo(db) });
+  const services = makeServices({ services: serviceRepo(db) });
+  const products = productRepo(db);
+  const catalog = makeCatalog({ products });
+  const tiles = tileRepos(db);
+  const tileCatalog = makeTileCatalog({ tiles: tiles.tiles });
+  const quotes = makeQuotes({ repos: tiles, track: (e) => events.record(e) });
+  const files = { put: async (k: string) => `/files/${k}`, get: async () => null };
+  const modules: Record<BotKind, BotModule> = { store: makeStoreModule({ catalog, products }), tile: makeTileModule({ repos: tiles, catalog: tileCatalog, quotes, files }) };
   const leads = makeLeads({ leads: leadRepo(db), events, notifier, baseUrl: "http://x" });
   const bookings = makeBookings({ bookings: bookingRepo(db), services: serviceRepo(db), leads: leadRepo(db), events, conversations, notifier });
   const support = makeSupport({ conversations, events, notifier, leads, baseUrl: "http://x" });
   const llmCalls = llmCallRepo(db);
-  const chat = makeChat({ conversations, events, insights: insightRepo(db), llm, fallbackLlm: new RuleBasedLlmGateway(), decision: jev, fallbackDecision: new RuleDecisionGateway(), catalog, bookings, support, llmCalls });
-  return { chat, support, bookings, llmCalls, insights: makeInsights({ insights: insightRepo(db), llm }) };
+  const chat = makeChat({ conversations, events, insights: insightRepo(db), llm, decision: jev, fallbackDecision: new RuleDecisionGateway(), modules, services, bookings, support, llmCalls });
+  return { chat, support, bookings, llmCalls, quotes, modules, insights: makeInsights({ insights: insightRepo(db), llm }) };
 }
 
 const send = (chat: ReturnType<typeof setup>["chat"], tenant: Tenant, visitorId: string, text: string) => chat.handleMessage({ tenant, visitorId, channel: "web", text });
@@ -177,7 +202,7 @@ describe("LLM + dữ liệu", () => {
     const r = await send(chat, shopA, "visitor-iso-1", "sữa rửa mặt");
     expect(r.reply!.text).toContain("Sữa rửa mặt dịu nhẹ");
     expect(r.reply!.text).not.toContain("shop B");
-    expect(r.products.map((p) => p.id)).toEqual(["a-p1"]);
+    expect((r.products as { id: string }[]).map((p) => p.id)).toEqual(["a-p1"]);
   });
 
   it("LLM gọi request_human → thẻ liên hệ nhân viên", async () => {
@@ -249,5 +274,98 @@ describe("báo cáo nhu cầu", () => {
     expect(r.unanswered[0].text).toBe("shop có bán son không");
     const a = await insights.report("tenant-a", { from: new Date(Date.now() - 60_000), to: new Date(Date.now() + 60_000) });
     expect(a.topics.some((t) => t.topic === "son môi")).toBe(false);
+  });
+});
+
+describe("kiến trúc đa bot", () => {
+  it("mỗi loại bot dùng schema riêng: bảng ở store / tile, không còn ở public", async () => {
+    const rows = (await db.execute(sql.raw("SELECT table_schema AS s, table_name AS t FROM information_schema.tables WHERE table_schema IN ('public','store','tile')"))) as unknown as { rows: { s: string; t: string }[] };
+    const where = (t: string) => rows.rows.filter((r) => r.t === t).map((r) => r.s);
+    expect(where("products")).toEqual(["store"]);
+    expect(where("tiles")).toEqual(["tile"]);
+    expect(where("quotes")).toEqual(["tile"]);
+    expect(where("conversations")).toEqual(["public"]);
+    expect(where("leads")).toEqual(["public"]);
+  });
+
+  it("một tài khoản có nhiều bot; đếm bot theo loại", async () => {
+    const repo = tenantRepo(db);
+    expect((await repo.listByAccount("acc-1")).map((t) => t.kind).sort()).toEqual(["store", "tile"]);
+    const counts = await repo.countByKind();
+    expect(counts.tile).toBeGreaterThanOrEqual(1);
+    expect(counts.store).toBeGreaterThanOrEqual(2);
+  });
+
+  it("bot gạch: tool báo giá của module tile chạy qua engine chung, kèm báo giá trong extras", async () => {
+    const llm = new FakeLlm(async ({ tools }) => {
+      const found = (await tool(tools, "suggest_tiles").run({ query: "vân đá" })) as { tileId: string }[];
+      const q = (await tool(tools, "calculate_quote").run({ tileId: found[0].tileId, areaM2: 20 })) as { total: string; boxes: number };
+      return `Báo giá: ${q.boxes} thùng, tổng ${q.total}`;
+    });
+    const { chat } = setup(llm, new FakeJev({}));
+    const r = await send(chat, tileShop, "visitor-tile-1", "báo giá gạch vân đá 20m2");
+    expect(r.reply!.text).toContain("thùng");
+    expect(r.products).toHaveLength(1);
+    expect((r.extras.quote as { tileName: string }).tileName).toBe("Vân đá thử");
+    expect(llm.calls[0].system).toContain("vật liệu ốp lát");
+  });
+
+  it("bot gạch không thấy sản phẩm của bot store và ngược lại", async () => {
+    const llm = new FakeLlm(async ({ tools }) => JSON.stringify(await tool(tools, "search_products").run({ query: "sữa rửa mặt" })));
+    const { chat } = setup(llm, new FakeJev({}));
+    // bot gạch không có tool search_products của store
+    const r = await send(chat, tileShop, "visitor-tile-2", "tìm sữa rửa mặt").catch((e) => e);
+    expect(String(r instanceof Error ? r.message : r.reply?.text)).not.toContain("Sữa rửa mặt dịu nhẹ");
+  });
+
+  it("bot gạch hết hạn mức LLM → bot gạch theo luật vẫn gợi ý mẫu và tính báo giá", async () => {
+    const llm = new FakeLlm(async () => {
+      throw new LlmUnavailableError("fake", "rate_limited", "429");
+    });
+    const { chat } = setup(llm, new FakeJev({ "vân đá lát sàn 4x5": { label: "product_query" } }));
+    const r = await send(chat, tileShop, "visitor-tile-3", "vân đá lát sàn 4x5");
+    expect(r.products.length).toBeGreaterThan(0);
+  });
+});
+
+describe("tài khoản, đăng ký và giới hạn gói", () => {
+  function accountSetup() {
+    const modules = { store: { onCreate: async () => undefined }, tile: { onCreate: async () => undefined } } as unknown as Record<BotKind, BotModule>;
+    const tenants = makeTenants({ tenants: tenantRepo(db), accounts: accountRepo(db), onCreate: (t) => modules[t.kind].onCreate(t.id) });
+    const hasher = { verify: async (p: string, h: string) => h === `h:${p}`, hash: async (p: string) => `h:${p}` };
+    return { tenants, auth: makeAuth({ users: adminUserRepo(db), accounts: accountRepo(db), hasher, tenants }) };
+  }
+
+  it("đăng ký tạo tài khoản dùng thử 14 ngày + bot đầu tiên; đăng nhập trả về bot đó", async () => {
+    const { auth, tenants } = accountSetup();
+    const s = await auth.signup({ name: "An", email: "An@Example.com", password: "matkhau123", shopName: "Cửa hàng An", kind: "tile" });
+    const bots = await tenants.listByAccount(s.accountId);
+    expect(bots).toHaveLength(1);
+    expect(bots[0]).toMatchObject({ kind: "tile", slug: "cua-hang-an", status: "active" });
+    const acc = await tenants.account(s.accountId);
+    expect(acc!.plan).toBe("trial");
+    const days = (acc!.trialEndsAt!.getTime() - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(13.9);
+    expect(days).toBeLessThanOrEqual(14);
+    const login = await auth.login("an@example.com", "matkhau123");
+    expect(login).toMatchObject({ accountId: s.accountId, tenantId: bots[0].id });
+  });
+
+  it("email trùng, mật khẩu yếu, đăng nhập sai bị từ chối", async () => {
+    const { auth } = accountSetup();
+    await expect(auth.signup({ name: "x", email: "an@example.com", password: "matkhau123", shopName: "Shop khác", kind: "store" })).rejects.toMatchObject({ code: "EMAIL_TAKEN" });
+    await expect(auth.signup({ name: "x", email: "moi@example.com", password: "123", shopName: "Shop", kind: "store" })).rejects.toMatchObject({ code: "WEAK_PASSWORD" });
+    await expect(auth.login("an@example.com", "sai-mat-khau")).rejects.toMatchObject({ code: "BAD_LOGIN" });
+  });
+
+  it("gói dùng thử tối đa 2 bot; slug trùng tự thêm hậu tố; bot của tài khoản khác không lẫn", async () => {
+    const { auth, tenants } = accountSetup();
+    const a = await auth.login("an@example.com", "matkhau123");
+    await tenants.createBot(a.accountId, "store", "Cửa hàng An");
+    await expect(tenants.createBot(a.accountId, "store", "Bot thứ ba")).rejects.toMatchObject({ code: "PLAN_LIMIT" });
+    const bots = await tenants.listByAccount(a.accountId);
+    expect(bots.map((b) => b.slug).sort()).toEqual(["cua-hang-an", "cua-hang-an-2"]);
+    const other = await auth.signup({ name: "Bình", email: "binh@example.com", password: "matkhau123", shopName: "Cửa hàng Bình", kind: "store" });
+    expect((await tenants.listByAccount(other.accountId)).map((b) => b.name)).toEqual(["Cửa hàng Bình"]);
   });
 });

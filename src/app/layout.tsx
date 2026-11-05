@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { siteConfig } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Widget Norm — Trợ lý chat bán hàng cho cửa hàng",
-  description: "Chatbot AI tư vấn sản phẩm, đặt lịch, chuyển nhân viên và phân tích nhu cầu khách cho mọi cửa hàng.",
+  metadataBase: new URL(siteConfig.url),
+  title: { default: `${siteConfig.name} — ${siteConfig.tagline}`, template: `%s · ${siteConfig.name}` },
+  description: siteConfig.description,
+  openGraph: { type: "website", siteName: siteConfig.name, title: `${siteConfig.name} — ${siteConfig.tagline}`, description: siteConfig.description, url: siteConfig.url },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };

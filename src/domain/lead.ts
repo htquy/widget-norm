@@ -26,6 +26,8 @@ export interface Lead {
   status: LeadStatus;
   /** Giá trị đơn khi chốt (VND) */
   wonValue: number | null;
+  /** Dữ liệu riêng theo loại bot, vd { quoteId, previewUrl, quoteTotal } của bot gạch */
+  meta: Record<string, string | number>;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -42,10 +42,20 @@ export interface TenantSettings {
 
 export const MAX_KNOWLEDGE_LENGTH = 20_000;
 
+/** Loại chatbot — mỗi loại là một module trong src/bots/<kind> và một schema DB riêng */
+export const BOT_KINDS = ["store", "tile"] as const;
+export type BotKind = (typeof BOT_KINDS)[number];
+export const isBotKind = (v: unknown): v is BotKind => (BOT_KINDS as readonly unknown[]).includes(v);
+
+/** Một bot (widget) của khách hàng. Một tài khoản có thể có nhiều bot thuộc nhiều loại. */
 export interface Tenant {
   id: string;
+  accountId: string;
+  kind: BotKind;
   slug: string;
   name: string;
+  /** active | paused (tạm dừng: widget báo bảo trì) */
+  status: string;
   settings: TenantSettings;
   createdAt: Date;
 }

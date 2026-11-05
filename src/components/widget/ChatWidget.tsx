@@ -4,16 +4,26 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type { WidgetAction } from "@/domain/conversation";
 import type { WidgetTheme } from "@/domain/theme";
 import { widgetApi, type Entry, type ProductCard, type PublicConfig } from "./api";
+import type { ExtHelpers, WidgetExtension } from "./extension";
+import { extensionFor } from "./extensions";
 import { BookingPanel, ContactPanel, ProductCards } from "./Panels";
 import { fontHref, widgetVars } from "./theme";
 
 interface Msg extends Entry {
-  products?: ProductCard[];
+  /** Thẻ danh mục (hình dạng do module bot quyết định) */
+  products?: unknown[];
+  /** Dữ liệu module kèm câu trả lời (vd báo giá) */
+  extrasData?: Record<string, unknown>;
   pending?: boolean;
   local?: boolean;
 }
 
-type Panel = { kind: "none" } | { kind: "booking"; serviceId?: string; hint?: string } | { kind: "lead" } | { kind: "callback" };
+type Panel =
+  | { kind: "none" }
+  | { kind: "booking"; serviceId?: string; hint?: string }
+  | { kind: "lead" }
+  | { kind: "callback" }
+  | { kind: "ext"; name: string; data?: unknown };
 
 function newVisitorId() {
   return (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`).replace(/[^A-Za-z0-9-]/g, "");
@@ -77,8 +87,8 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
         setConversationId(d.conversationId);
         setMode(d.mode);
         setRating(d.rating);
-        const byId = new Map(d.products.map((p) => [p.id, p]));
-        setMessages(d.transcript.map((m) => ({ ...m, products: m.productIds?.map((id) => byId.get(id)).filter((p): p is ProductCard => !!p) })));
+        const byId = new Map((d.products as { id: string }[]).map((p) => [p.id, p]));
+        setMessages(d.transcript.map((m) => ({ ...m, products: m.productIds?.map((id) => byId.get(id)).filter((p) => !!p) })));
         api.track("widget_open", { conversationId: d.conversationId });
       })
       .catch((e) => setLoadError(e.message));
@@ -132,7 +142,7 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
       setMode(res.mode);
       setMessages((m) => {
         const rest = m.filter((x) => x.id !== `${tempId}-p`);
-        return res.reply ? [...rest, { ...res.reply, products: res.products }] : rest;
+        return res.reply ? [...rest, { ...res.reply, products: res.products, extrasData: res.extras }] : rest;
       });
       if (res.reply?.action?.type === "booking") setPanel({ kind: "booking", serviceId: res.reply.action.serviceId });
     } catch (e) {
@@ -143,7 +153,8 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
     }
   }
 
-  const pushLocal = (text: string) => setMessages((m) => [...m, { id: `local-${Date.now()}`, role: "assistant", text, at: new Date().toISOString(), local: true }]);
+  const pushLocal = (text: string, extrasData?: Record<string, unknown>) =>
+    setMessages((m) => [...m, { id: `local-${Date.now()}`, role: "assistant", text, at: new Date().toISOString(), local: true, extrasData }]);
 
   async function feedback(entry: Msg, value: 1 | -1) {
     if (!conversationId || entry.local) return;
@@ -177,6 +188,18 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
   const font = fontHref(theme);
   const assistantCount = messages.filter((m) => m.role === "assistant" && !m.local).length;
   const showRating = !preview && rating === null && assistantCount >= 3 && !sending;
+  const ext: WidgetExtension | null = extensionFor(config.kind);
+  const helpers: ExtHelpers = {
+    tenant,
+    visitorId,
+    conversationId,
+    config,
+    send: (t) => void send(t),
+    openPanel: (name, data) => setPanel({ kind: "ext", name, data }),
+    closePanel: () => setPanel({ kind: "none" }),
+    pushLocal,
+  };
+  const fullScreen = panel.kind === "ext" && !!ext?.fullScreenPanels?.includes(panel.name);
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-[var(--w-bg)] text-[var(--w-fg)]" style={widgetVars(theme, dark)}>
@@ -213,16 +236,21 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
             )}
             {m.products && m.products.length > 0 && (
               <div className="pl-9">
-                <ProductCards
-                  products={m.products}
-                  onAsk={(p) => {
-                    api.track("product_clicked", { conversationId, refId: p.id });
-                    send(`Cho mình biết thêm về ${p.name}`);
-                  }}
-                  onOpen={(p) => api.track("product_clicked", { conversationId, refId: p.id })}
-                />
+                {ext?.renderCards ? (
+                  ext.renderCards(m.products, helpers)
+                ) : (
+                  <ProductCards
+                    products={m.products as ProductCard[]}
+                    onAsk={(p) => {
+                      api.track("product_clicked", { conversationId, refId: p.id });
+                      send(`Cho mình biết thêm về ${p.name}`);
+                    }}
+                    onOpen={(p) => api.track("product_clicked", { conversationId, refId: p.id })}
+                  />
+                )}
               </div>
             )}
+            {m.extrasData && ext?.renderExtras && <div className="pl-9">{ext.renderExtras(m.extrasData, helpers)}</div>}
             {m.action && <ActionCard action={m.action} config={config} onBooking={(serviceId) => setPanel({ kind: "booking", serviceId })} onCallback={() => setPanel({ kind: "callback" })} mode={mode} />}
             {(m.role === "assistant" || m.role === "agent") && !m.pending && !m.local && !preview && (
               <div className="flex gap-1 pl-9" aria-label="Đánh giá câu trả lời">
@@ -243,6 +271,7 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
       </div>
 
       <div className="border-t border-[var(--w-border)] bg-[var(--w-surface)] px-2.5 pb-2 pt-2">
+        {ext?.quickActions && mode === "bot" && <div className="-mx-0.5 mb-2 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5">{ext.quickActions(helpers)}</div>}
         {config.quickReplies.length > 0 && mode === "bot" && (
           <div className="-mx-0.5 mb-2 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5">
             {config.quickReplies.map((q) => (
@@ -305,7 +334,8 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
 
       {panel.kind !== "none" && (
         <div className="absolute inset-0 z-30 flex flex-col bg-black/40 animate-fade-in" onClick={(e) => e.target === e.currentTarget && setPanel({ kind: "none" })}>
-          <div role="dialog" aria-modal="true" className="mt-auto flex max-h-[92%] min-h-0 flex-col overflow-hidden rounded-t-[var(--w-r-frame)] bg-[var(--w-surface)] shadow-2xl animate-slide-up">
+          <div role="dialog" aria-modal="true" className={`mt-auto flex min-h-0 flex-col overflow-hidden bg-[var(--w-surface)] shadow-2xl animate-slide-up ${fullScreen ? "h-full" : "max-h-[92%] rounded-t-[var(--w-r-frame)]"}`}>
+            {panel.kind === "ext" && ext?.renderPanel?.(panel.name, panel.data, helpers)}
             {panel.kind === "booking" && (
               <BookingPanel
                 api={api}

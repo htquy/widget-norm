@@ -13,10 +13,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ tenant: string 
       return NextResponse.json({ error: "Website này chưa được phép nhúng chatbot" }, { status: 403 });
     }
     const conv = await c.chat.start(tenant, visitorId, "web");
+    const mod = c.moduleOf(tenant);
     const ids = [...new Set(conv.transcript.flatMap((e) => e.productIds ?? []))];
-    const products = await c.catalog.cardsByIds(tenant.id, ids);
+    const [products, ext] = await Promise.all([mod.cards(tenant.id, ids), mod.publicConfig(tenant, visitorId)]);
     return NextResponse.json({
-      config: c.tenants.publicConfig(tenant),
+      config: { ...c.tenants.publicConfig(tenant), ext },
       conversationId: conv.conversationId,
       mode: conv.mode,
       rating: conv.rating,
