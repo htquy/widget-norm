@@ -5,6 +5,10 @@ description: Ngôn ngữ thiết kế cho landing page, trang giới thiệu t�
 
 # Thiết kế trang marketing (theo skill-pages)
 
+## Hướng thiết kế AVI (2026-11-05)
+
+Đọc thêm `../frontend-design/SKILL.md` và `docs/AVI-REDESIGN.md` ở root. Landing hub giới thiệu workspace; AVI có phong cách bán lẻ lavender, bot gạch dùng studio vật liệu xanh blueprint, serif và phối cảnh. Không áp một hero/lưới thẻ giống nhau cho mọi bot. Màu riêng của trang ngành được phép thay màu CTA của ngành theo yêu cầu người dùng; header hub giữ thương hiệu chung. Giá đọc từ `src/domain/bot-pricing.ts`; không tạo bảng giá riêng trong component. Widget mẫu AVI/Gạch trên trang giới thiệu được dùng công khai; tạo bot cho website riêng yêu cầu SSO. Hình minh họa phải ghi rõ là mẫu.
+
 Nguồn: landing của `skill-pages` (`app/page.tsx`, `src/presentation/components/landing/*`, `app/globals.css`). Bản sao utility ở `references/skill-pages-utilities.css`, yêu cầu UI gốc ở `references/03-ui-product-requirements.md`.
 
 ## Token

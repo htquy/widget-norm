@@ -15,7 +15,7 @@ Rút gọn từ `references/15-microservice-modular-architecture.md` (chuẩn mo
 | `store` | `products` | chỉ module `src/bots/store` |
 | `tile` | `tiles`, `quotes`, `settings` | chỉ module `src/bots/tile` |
 
-- Mọi bảng có `tenant_id`; mọi truy vấn lọc `tenant_id` lấy từ server (session hoặc slug), không tin client.
+- Bảng dữ liệu bot có `tenant_id`; bảng tài khoản/domain/license dùng `account_id` hoặc subject trung tâm. Mọi truy vấn lọc chủ sở hữu lấy từ server (session hoặc slug), không tin client.
 - **Không join chéo schema** trong application/domain. Module bot đọc bảng `public` qua port/repository dùng chung; engine dùng chung lấy dữ liệu của bot qua interface `BotModule` (`src/bots/types.ts`).
 - Thêm bảng: khai báo Drizzle trong `src/infrastructure/db/schema.ts` (dùng `pgSchema("<kind>")`), thêm DDL `CREATE ... IF NOT EXISTS` vào mảng `DDL` (idempotent, chạy lúc khởi động), bật RLS.
 - Id hội thoại/lead lưu dạng text; khoá ngoại logic (không FK chéo schema) để mỗi module tách thành service riêng được.
@@ -28,7 +28,11 @@ Mỗi loại bot là một thư mục `src/bots/<kind>/` gồm:
 - `widget.tsx` — `WidgetExtension` (thẻ, nút nhanh, panel riêng) cắm vào `ChatWidget` chung.
 - `admin/*` — trang quản trị riêng, khai báo trong `adminNav`.
 
-Đăng ký module trong `src/bots/registry.ts` (server) và `src/bots/catalog.ts` (meta, dùng được ở client).
+Đăng ký module trong `src/infrastructure/container.ts` (server) và `src/bots/catalog.ts` (meta, dùng được ở client).
+
+AVI là capability nền tảng (`kind=store` để tương thích dữ liệu). Bot ngành phải dùng `composeWithAvi` từ `src/bots/avi/compose.ts` để kế thừa catalogue, prompt, grounding và cards; không sao chép logic AVI. Booking, knowledge, CRM, live chat và analytics do engine chung cung cấp. Fixtures demo thuộc module ngành, không kế thừa hàng mẫu đa ngành.
+
+`public.website_domains` khóa domain chuẩn hóa duy nhất, `hub_identities` lưu subject + token mã hóa, `bot_licenses` gắn một subscription app của hub với một bot được chọn. Account/domain/license lấy từ session hoặc tenant đã resolve ở server. Module dùng chung account/payment/gateway thực sự nằm ở `skill-pages`; widget chỉ có adapter HTTP và trạng thái riêng của sản phẩm.
 
 Chat engine (`src/application/use-cases/chat.ts`) giữ phần chung: tầng quyết định jev, chuyển nhân viên, live chat, guard chống bịa, ghi phân tích. **Không** viết logic riêng của một ngành trong engine.
 

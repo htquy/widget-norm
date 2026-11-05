@@ -56,6 +56,8 @@ Chưa làm trong Phase 1 (để Phase 2): rate limit/khoá dùng Redis/DB cho nh
 
 ## Phase 2 — Gọi qua AI Gateway (`skill-pages`) + decision model jev
 
+**Cập nhật 2026-11-05:** đã triển khai adapter `HubLlmGateway` và `HubDecisionGateway` cho cả bot trả lời và jev; gateway trung tâm có tools/toolChoice, role tool, assistant tool_calls, kết quả toolCalls và SSE toolCallDeltas (OpenAI/OpenRouter). Bot luật dự phòng vẫn dùng khi gateway lỗi. Widget có 68 test, hub có 2 test hợp đồng JSON/SSE. Chưa chạy xuyên suốt với gateway thật vì chưa có `HUB_*` trong cấu hình widget. `AiRoute`/chuỗi model theo chính sách dữ liệu, usage theo tenant, hạn mức và khoá phân tán bên dưới vẫn chưa hoàn tất.
+
 ### 2A. Gateway (`skill-pages`)
 1. Endpoint văn bản truyền `tools`/`tool_choice`/`tool_calls`/tin nhắn `tool` (cả SSE).
 2. Adapter OpenRouter (dùng lại adapter OpenAI + `baseUrl`, header `HTTP-Referer`/`X-Title`, `provider.order`, `provider.data_collection`) và adapter Anthropic (SDK chính thức, prompt caching).

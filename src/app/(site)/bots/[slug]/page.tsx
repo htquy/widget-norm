@@ -1,151 +1,309 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Script from "next/script";
-import { notFound } from "next/navigation";
-import { ArrowRight, Check } from "lucide-react";
+import { notFound, permanentRedirect } from "next/navigation";
+import {
+  ArrowRight,
+  Check,
+  Grid3x3,
+  Ruler,
+  ShoppingBag,
+  Sparkles,
+} from "lucide-react";
 import { BOT_METAS, metaBySlug } from "@/bots/catalog";
-import { ChatMock } from "@/components/site/ChatMock";
+import { BOT_PRICING } from "@/domain/bot-pricing";
 import { Container } from "@/components/site/Container";
+import { ChatMock } from "@/components/site/ChatMock";
+import { MaterialRoom } from "@/components/site/ProductPreview";
+import { Faq, FinalCta } from "@/components/site/Sections";
 import { Icon } from "@/components/site/Icon";
-import { Faq, FinalCta, SectionHead } from "@/components/site/Sections";
+import { DemoWidget } from "@/components/site/DemoWidget";
 
 type Props = { params: Promise<{ slug: string }> };
-
 export function generateStaticParams() {
   return BOT_METAS.map((m) => ({ slug: m.slug }));
 }
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const m = metaBySlug((await params).slug);
   return m ? { title: m.name, description: m.tagline } : {};
 }
 
-/** Trang giới thiệu riêng của từng chatbot — nội dung lấy từ meta.ts của module bot */
 export default async function BotPage({ params }: Props) {
-  const meta = metaBySlug((await params).slug);
+  const slug = (await params).slug;
+  if (slug === "tro-ly-ban-hang") permanentRedirect("/bots/avi");
+  const meta = metaBySlug(slug);
   if (!meta) notFound();
-  const signup = `/signup?bot=${meta.slug}`;
+  const tile = meta.kind === "tile",
+    price = BOT_PRICING[meta.kind],
+    signup = `/signup?bot=${meta.slug}`;
   return (
-    <>
-      {/* Hero */}
-      <section className="aurora border-b border-zinc-200 bg-white py-16 sm:py-24">
-        <div aria-hidden="true" className="bg-grid pointer-events-none absolute inset-0 -z-10" />
-        <Container className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
-          <div className="lg:col-span-7">
-            <nav aria-label="Đường dẫn" className="text-sm text-zinc-500">
-              <Link href="/bots" className="hover:text-brand-700">
-                Chatbot
-              </Link>{" "}
-              / <span className="text-zinc-800">{meta.shortName}</span>
+    <div className={tile ? "tile-site" : "avi-site"}>
+      <DemoWidget
+        key={meta.demoSlug}
+        tenant={meta.demoSlug}
+        name={meta.shortName}
+        accent={meta.accentHex}
+      />
+      {tile ? (
+        <section className="tile-hero">
+          <Container>
+            <nav
+              className="mb-10 text-xs text-[#526674]"
+              aria-label="Đường dẫn"
+            >
+              <Link href="/bots">Chatbot</Link> / AVI Gạch
             </nav>
-            <div className="mt-4 flex items-center gap-3">
-              <span className={`inline-grid size-12 place-items-center rounded-xl ${meta.tile}`}>
-                <Icon name={meta.icon} className="size-6" />
-              </span>
-              <span className="eyebrow">{meta.status === "live" ? "Đang mở bán" : "Bản thử nghiệm"}</span>
-            </div>
-            <h1 className="mt-5 max-w-[680px] text-4xl font-bold tracking-tight text-zinc-950 sm:text-5xl [text-wrap:balance]">{meta.name}</h1>
-            <p className="mt-5 max-w-[620px] text-lg leading-relaxed text-zinc-600 [text-wrap:pretty]">{meta.description}</p>
-            <ul className="mt-6 space-y-2">
-              {meta.heroPoints.map((p) => (
-                <li key={p} className="flex gap-2.5 text-[15px] text-zinc-800">
-                  <Check className="mt-0.5 size-5 shrink-0 text-emerald-600" aria-hidden="true" />
-                  {p}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link href={signup} className="btn-primary group text-base">
-                Dùng thử {meta.shortName.toLowerCase()} miễn phí
-                <ArrowRight className="size-4 transition-transform duration-500 ease-fluid group-hover:translate-x-1" aria-hidden="true" />
-              </Link>
-              <Link href="/pricing" className="btn-secondary text-base">
-                Xem bảng giá
-              </Link>
-            </div>
-            <p className="mt-4 text-sm text-zinc-500">Bấm nút chat ở góc phải màn hình để thử bot demo của ngành này.</p>
-          </div>
-          <div className="relative lg:col-span-5">
-            <div aria-hidden="true" className="absolute -inset-6 -z-10 hidden rounded-[2.5rem] bg-gradient-to-br from-brand-300/50 via-violet-300/40 to-spark-200/50 blur-2xl sm:block" />
-            <ChatMock kind={meta.kind} className="md:animate-float" />
-          </div>
-        </Container>
-      </section>
-
-      {/* Tính năng */}
-      <section className="border-b border-zinc-200 bg-white py-16 sm:py-24">
-        <Container>
-          <SectionHead eyebrow="Tính năng" title={`${meta.shortName}: những gì bạn nhận được`} />
-          <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {meta.features.map((f) => (
-              <li key={f.title} className="card-lift reveal rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8">
-                <span className={`inline-grid size-12 place-items-center rounded-xl ${meta.tile}`}>
-                  <Icon name={f.icon} className="size-6" />
+            <div className="grid items-center gap-10 lg:grid-cols-[.85fr_1.15fr]">
+              <div>
+                <span className="inline-flex items-center gap-2 text-sm font-medium text-[#15476d]">
+                  <Grid3x3 className="size-4" /> Studio tư vấn vật liệu
                 </span>
-                <h3 className="mt-5 text-lg font-bold text-zinc-950">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-600 [text-wrap:pretty]">{f.text}</p>
-              </li>
-            ))}
-          </ul>
-        </Container>
-      </section>
-
-      {/* Cách triển khai */}
-      <section className="border-b border-zinc-200 bg-gradient-to-b from-white to-brand-50/50 py-16 sm:py-24">
-        <Container>
-          <SectionHead eyebrow="Triển khai" title="Ba bước để chạy trên website của bạn" />
-          <ol className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3 lg:gap-8">
-            {meta.steps.map((s, i) => (
-              <li key={s.title} className="card-lift reveal rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8">
-                <div className="inline-grid size-12 place-items-center rounded-2xl bg-zinc-950 font-mono text-base font-bold text-white shadow-glow">
-                  <span className="text-gradient">{String(i + 1).padStart(2, "0")}</span>
+                <h1 className="tile-title mt-6">
+                  Đừng chỉ
+                  <br />
+                  chọn gạch.
+                  <br />
+                  Hãy thấy
+                  <br />
+                  cả không gian.
+                </h1>
+                <p className="mt-6 max-w-sm text-base leading-relaxed text-[#526674]">
+                  Từ một bức ảnh phòng đến mẫu gạch phù hợp, dự toán vật tư và
+                  lịch hẹn showroom. AVI Gạch giúp khách hình dung trước khi
+                  quyết định.
+                </p>
+                <Link href={signup} className="tile-button mt-8">
+                  Mở studio của bạn <ArrowRight className="size-4" />
+                </Link>
+                <p className="mt-4 text-xs text-[#526674]">
+                  Toàn bộ AVI + công cụ chuyên ngành · 14 ngày dùng thử
+                </p>
+              </div>
+              <MaterialRoom />
+            </div>
+            <div className="mt-10 grid gap-5 border-t border-[#ccd7da] pt-7 sm:grid-cols-3">
+              {[
+                ["Tư vấn có cơ sở", "Catalogue và thông số của showroom"],
+                ["Dự toán rõ ràng", "Số thùng, hao hụt, keo và ron"],
+                ["Tiếp nối đúng lúc", "Lead, phối cảnh và lịch khảo sát"],
+              ].map(([t, d]) => (
+                <div key={t}>
+                  <p className="text-sm font-semibold text-[#15476d]">{t}</p>
+                  <p className="mt-1 text-xs text-[#526674]">{d}</p>
                 </div>
-                <h3 className="mt-5 text-lg font-bold text-zinc-950">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-600 [text-wrap:pretty]">{s.text}</p>
-              </li>
-            ))}
-          </ol>
-        </Container>
-      </section>
-
-      {/* Ngành & tình huống */}
-      <section className="border-b border-zinc-200 bg-white py-16 sm:py-24">
-        <Container className="grid gap-12 lg:grid-cols-2">
-          <div>
-            <SectionHead eyebrow="Tình huống" title="Dùng vào việc gì" />
-            <ul className="mt-8 space-y-4">
-              {meta.useCases.map((u) => (
-                <li key={u.title} className="rounded-2xl border border-zinc-200 p-5">
-                  <h3 className="text-base font-bold text-zinc-950">{u.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-zinc-600">{u.text}</p>
-                </li>
               ))}
-            </ul>
-          </div>
-          <div>
-            <SectionHead eyebrow="Thử hỏi bot" title="Khách thường hỏi" subtitle="Mở khung chat ở góc phải và thử các câu này." />
-            <ul className="mt-8 space-y-3">
-              {meta.sampleQuestions.map((q) => (
-                <li key={q} className="rounded-2xl bg-zinc-50 px-5 py-3 text-[15px] text-zinc-800 ring-1 ring-zinc-200">
-                  “{q}”
-                </li>
-              ))}
-            </ul>
-            <p className="mt-6 text-sm text-zinc-500">Phù hợp: {meta.industries.join(" · ")}</p>
-            {meta.pricingNote && <p className="mt-2 text-sm text-zinc-500">{meta.pricingNote}</p>}
-          </div>
-        </Container>
-      </section>
-
-      <section className="border-b border-zinc-200 bg-white py-16 sm:py-24">
+            </div>
+          </Container>
+        </section>
+      ) : (
+        <section className="avi-hero">
+          <Container className="grid items-center gap-12 lg:grid-cols-2">
+            <div>
+              <div className="avi-wordmark" aria-label="AVI">
+                avi
+                <span className="avi-dot" />
+              </div>
+              <h1 className="mt-8 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+                Nhỏ gọn trong web.
+                <br />
+                Tháo vát như người nhà.
+              </h1>
+              <p className="mt-6 max-w-lg text-lg leading-relaxed text-zinc-600">
+                Gặp AVI, trợ lý AI cho mọi cửa hàng. Tư vấn đúng món, nhớ chính
+                sách, nhận lịch hẹn và gọi nhân viên khi bạn cần.
+              </p>
+              <div className="mt-7 flex flex-wrap gap-2">
+                {[
+                  "Thời trang",
+                  "Gia dụng",
+                  "Công nghệ",
+                  "Quà tặng",
+                  "Dịch vụ",
+                ].map((i) => (
+                  <span
+                    key={i}
+                    className="rounded-full border border-brand-200 bg-white px-3 py-1.5 text-xs text-brand-800"
+                  >
+                    {i}
+                  </span>
+                ))}
+              </div>
+              <Link href={signup} className="btn-primary mt-8">
+                Đón AVI về cửa hàng <ArrowRight className="size-4" />
+              </Link>
+              <p className="mt-4 text-sm text-zinc-500">
+                Từ {price.monthly.toLocaleString("vi-VN")} ₫/tháng · Dùng thử 14
+                ngày
+              </p>
+            </div>
+            <div className="avi-chat-stage">
+              <div className="avi-orbit-tag">
+                <ShoppingBag className="size-4" /> Hiểu danh mục của bạn
+              </div>
+              <ChatMock kind="store" />
+              <div className="avi-orbit-note">
+                <Check className="size-4 text-emerald-700" /> Mọi tính năng lõi,
+                ngay từ đầu
+              </div>
+            </div>
+          </Container>
+        </section>
+      )}
+      {tile && (
+        <section className="section-space">
+          <Container>
+            <div className="grid gap-10 lg:grid-cols-2">
+              <div className="section-heading">
+                <p className="text-sm font-semibold text-[#15476d]">
+                  Từ lựa chọn đến dự toán
+                </p>
+                <h2 className="font-serif">
+                  Một cuộc trò chuyện.
+                  <br />
+                  Cả quy trình tư vấn.
+                </h2>
+                <p>
+                  Khách mô tả không gian, chọn mẫu và thử trên ảnh phòng. Công
+                  cụ báo giá tính từ thông số bạn thiết lập; nhân viên nhận đủ
+                  ngữ cảnh để tiếp tục tư vấn.
+                </p>
+                <ul className="mt-6 space-y-3">
+                  {[
+                    "Lát sàn & ốp tường, nhiều kiểu lát",
+                    "Số thùng và hao hụt theo quy cách",
+                    "Ảnh phối cảnh kèm thông tin liên hệ",
+                  ].map((i) => (
+                    <li key={i} className="flex gap-2 text-sm">
+                      <Ruler className="size-4 shrink-0 text-[#15476d]" />
+                      {i}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <ChatMock kind="tile" />
+            </div>
+          </Container>
+        </section>
+      )}
+      <section
+        className={`section-space ${tile ? "bg-[#edf2f3]" : "bg-white"}`}
+      >
         <Container>
-          <SectionHead eyebrow="Câu hỏi thường gặp" title={`Về ${meta.shortName.toLowerCase()}`} />
+          <div className="section-heading">
+            <p
+              className={`text-sm font-semibold ${tile ? "text-[#15476d]" : "text-brand-700"}`}
+            >
+              {tile
+                ? "AVI đầy đủ, thêm chiều sâu chuyên ngành"
+                : "Một trợ lý, đủ việc của shop"}
+            </p>
+            <h2 className={tile ? "font-serif" : ""}>
+              {tile
+                ? "Hơn một công cụ phối cảnh."
+                : "Mỗi cuộc trò chuyện đều được chăm chút."}
+            </h2>
+            <p>
+              {tile
+                ? "Không đánh đổi tính năng chăm sóc khách hàng. AVI Gạch có trọn bộ AVI và các công cụ riêng cho vật liệu ốp lát."
+                : "Bạn cung cấp dữ liệu cửa hàng. AVI kết nối sản phẩm, kiến thức và con người thành một trải nghiệm liền mạch."}
+            </p>
+          </div>
+          <div
+            className={`mt-10 grid gap-6 sm:grid-cols-2 ${tile ? "lg:grid-cols-3" : "lg:grid-cols-3"}`}
+          >
+            {meta.features.map((f) => (
+              <article
+                key={f.title}
+                className={tile ? "material-feature" : "avi-feature"}
+              >
+                <Icon
+                  name={f.icon}
+                  className={`size-6 ${tile ? "text-[#15476d]" : "text-brand-700"}`}
+                />
+                <h3 className="mt-5 text-base font-semibold">{f.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                  {f.text}
+                </p>
+              </article>
+            ))}
+          </div>
+        </Container>
+      </section>
+      <section className="section-space">
+        <Container>
+          <div
+            className={`grid items-start gap-10 ${tile ? "lg:grid-cols-[1fr_1.1fr]" : "lg:grid-cols-2"}`}
+          >
+            <div className="section-heading">
+              <p className="text-sm font-semibold text-brand-700">
+                Chi phí rõ ràng
+              </p>
+              <h2 className={tile ? "font-serif" : ""}>
+                {tile
+                  ? "Một showroom thông minh hơn."
+                  : "Đầy đủ tiện ích. Vừa túi tiền shop."}
+              </h2>
+              <p>
+                {tile
+                  ? "Phần chuyên ngành có thêm catalogue vật liệu, công cụ dự toán và studio phối cảnh. Mọi tiện ích AVI đã bao gồm trong giá."
+                  : "AVI là điểm khởi đầu tiết kiệm nhất trong hệ chatbot. Các bot chuyên ngành bổ sung nghiệp vụ và có mức giá riêng."}
+              </p>
+              <p className="mt-5 text-sm text-zinc-500">
+                Không tự động thu phí khi hết dùng thử. Thanh toán và quản lý
+                gói tại tài khoản trung tâm.
+              </p>
+            </div>
+            <div
+              className={`rounded-3xl p-7 sm:p-9 ${tile ? "bg-[#15476d] text-white" : "border border-brand-200 bg-brand-50"}`}
+            >
+              <p className="text-sm font-medium">{meta.shortName} Cơ bản</p>
+              <p className="mt-3 text-4xl font-bold tracking-tight">
+                {price.monthly.toLocaleString("vi-VN")} ₫
+                <span className="ml-1 text-sm font-normal opacity-75">
+                  /tháng/bot
+                </span>
+              </p>
+              <ul className="my-7 space-y-3">
+                {price.includes.map((f) => (
+                  <li key={f} className="flex gap-2 text-sm">
+                    <Check className="size-4 shrink-0" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href={signup}
+                className={
+                  tile
+                    ? "flex min-h-12 items-center justify-center rounded-xl bg-white px-5 text-sm font-semibold text-[#15476d]"
+                    : "btn-primary w-full"
+                }
+              >
+                Bắt đầu 14 ngày miễn phí
+              </Link>
+            </div>
+          </div>
+        </Container>
+      </section>
+      <section className="section-space border-y border-zinc-200 bg-zinc-50">
+        <Container>
+          <div className="section-heading text-center">
+            <h2 className={tile ? "font-serif" : ""}>Trước khi bạn bắt đầu</h2>
+          </div>
           <Faq items={meta.faq} />
         </Container>
       </section>
-
-      <FinalCta title={`Thử ${meta.shortName.toLowerCase()} cho cửa hàng của bạn`} subtitle="Đăng ký trong 1 phút, có bot chạy thử với dữ liệu của bạn ngay hôm nay." primary={{ href: signup, label: "Dùng thử miễn phí 14 ngày" }} />
-      <Script src="/widget.js" data-tenant={meta.demoSlug} strategy="afterInteractive" />
-    </>
+      <FinalCta
+        title={
+          tile
+            ? "Đưa showroom đến ngay ngôi nhà của khách."
+            : "Để AVI đón vị khách tiếp theo."
+        }
+        subtitle="Đăng nhập email, tạo chatbot và trải nghiệm với dữ liệu cửa hàng của bạn."
+        primary={{
+          href: signup,
+          label: tile ? "Trải nghiệm AVI Gạch" : "Trải nghiệm AVI",
+        }}
+      />
+    </div>
   );
 }

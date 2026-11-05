@@ -13,10 +13,13 @@ export type DB = PgDatabase<PgQueryResultHKT, typeof schema>;
  */
 function sslFor(url: string) {
   const host = new URL(url).hostname;
-  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return undefined;
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1")
+    return undefined;
   const ca = process.env.DATABASE_SSL_CA?.trim();
   if (!ca) return { rejectUnauthorized: false };
-  return { ca: ca.includes("BEGIN CERTIFICATE") ? ca : readFileSync(ca, "utf8") };
+  return {
+    ca: ca.includes("BEGIN CERTIFICATE") ? ca : readFileSync(ca, "utf8"),
+  };
 }
 
 async function create(): Promise<DB> {
@@ -26,7 +29,15 @@ async function create(): Promise<DB> {
     const { Pool } = await import("pg");
     const { drizzle } = await import("drizzle-orm/node-postgres");
     // Với Supabase: dùng chuỗi Session Pooler (…pooler.supabase.com) vì host db.<ref>.supabase.co chỉ có IPv6.
-    db = drizzle(new Pool({ connectionString: url, max: 5, ssl: sslFor(url), connectionTimeoutMillis: 15_000 }), { schema }) as unknown as DB;
+    db = drizzle(
+      new Pool({
+        connectionString: url,
+        max: 5,
+        ssl: sslFor(url),
+        connectionTimeoutMillis: 15_000,
+      }),
+      { schema },
+    ) as unknown as DB;
   } else {
     // Postgres nhúng (WASM) — không cần cài đặt gì, dữ liệu lưu ở ./data/pglite
     const { PGlite } = await import("@electric-sql/pglite");
@@ -40,7 +51,11 @@ async function create(): Promise<DB> {
   return db;
 }
 
-const g = globalThis as unknown as { __normDb?: Promise<DB> };
+const g = globalThis as unknown as {
+  __normDb?: Promise<DB>;
+  __normSchemaReady?: Promise<void>;
+  __normSchemaVersion?: string;
+};
 
 /** Một kết nối dùng chung cho cả tiến trình (kể cả khi Next.js hot-reload). */
 export function getDb(): Promise<DB> {
@@ -48,5 +63,18 @@ export function getDb(): Promise<DB> {
     g.__normDb = undefined;
     throw e;
   });
-  return g.__normDb;
+  // Also upgrade an existing dev connection preserved by HMR, without opening a second PGlite instance.
+  if (g.__normSchemaVersion !== "avi-v3") {
+    g.__normSchemaReady = undefined;
+    g.__normSchemaVersion = "avi-v3";
+  }
+  g.__normSchemaReady ??= g.__normDb
+    .then(async (db) => {
+      for (const statement of schema.DDL) await db.execute(sql.raw(statement));
+    })
+    .catch((error) => {
+      g.__normSchemaReady = undefined;
+      throw error;
+    });
+  return g.__normSchemaReady.then(() => g.__normDb!);
 }

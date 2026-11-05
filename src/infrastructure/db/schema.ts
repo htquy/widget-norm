@@ -1,7 +1,25 @@
-import { bigint, bigserial, boolean, index, integer, jsonb, pgSchema, pgTable, real, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  bigserial,
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgSchema,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import type { TenantSettings } from "@/domain/tenant";
 import type { TranscriptEntry } from "@/domain/conversation";
-import type { QuoteOptions, QuotePricing, QuoteResult, SurfaceInput } from "@/bots/tile/domain/quote";
+import type {
+  QuoteOptions,
+  QuotePricing,
+  QuoteResult,
+  SurfaceInput,
+} from "@/bots/tile/domain/quote";
 
 /**
  * Một PostgreSQL, nhiều schema (xem .claude/skills/hub-architecture):
@@ -11,7 +29,8 @@ import type { QuoteOptions, QuotePricing, QuoteResult, SurfaceInput } from "@/bo
  * Không có khoá ngoại chéo schema — module tách thành service riêng được.
  */
 
-const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" }).notNull().defaultNow();
+const ts = (name: string) =>
+  timestamp(name, { withTimezone: true, mode: "date" }).notNull().defaultNow();
 
 /* =============================== public =============================== */
 
@@ -22,6 +41,28 @@ export const accounts = pgTable("accounts", {
   plan: text("plan").notNull().default("trial"),
   trialEndsAt: timestamp("trial_ends_at", { withTimezone: true, mode: "date" }),
   createdAt: ts("created_at"),
+});
+
+export const hubIdentities = pgTable("hub_identities", {
+  subject: text("subject").primaryKey(),
+  accountId: text("account_id").notNull().unique(),
+  tokens: text("tokens").notNull(),
+  createdAt: ts("created_at"),
+});
+
+export const websiteDomains = pgTable("website_domains", {
+  domain: text("domain").primaryKey(),
+  accountId: text("account_id").notNull(),
+  token: text("token").notNull(),
+  verifiedAt: timestamp("verified_at", { withTimezone: true, mode: "date" }),
+  createdAt: ts("created_at"),
+});
+
+export const botLicenses = pgTable("bot_licenses", {
+  key: text("key").primaryKey(),
+  accountId: text("account_id").notNull(),
+  kind: text("kind").notNull(),
+  tenantId: text("tenant_id").notNull(),
 });
 
 export const tenants = pgTable(
@@ -69,7 +110,10 @@ export const bookings = pgTable(
     name: text("name").notNull(),
     phone: text("phone").notNull(),
     note: text("note").notNull().default(""),
-    startAt: timestamp("start_at", { withTimezone: true, mode: "date" }).notNull(),
+    startAt: timestamp("start_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true, mode: "date" }).notNull(),
     status: text("status").notNull(),
     createdAt: ts("created_at"),
@@ -90,7 +134,10 @@ export const leads = pgTable(
     source: text("source").notNull().default("form"),
     status: text("status").notNull(),
     wonValue: bigint("won_value", { mode: "number" }),
-    meta: jsonb("meta").$type<Record<string, string | number>>().notNull().default({}),
+    meta: jsonb("meta")
+      .$type<Record<string, string | number>>()
+      .notNull()
+      .default({}),
     createdAt: ts("created_at"),
     updatedAt: ts("updated_at"),
   },
@@ -114,7 +161,10 @@ export const conversations = pgTable(
     createdAt: ts("created_at"),
     updatedAt: ts("updated_at"),
   },
-  (t) => [index("conv_tenant_visitor").on(t.tenantId, t.visitorId, t.updatedAt), index("conv_tenant_handoff").on(t.tenantId, t.handoffStatus, t.updatedAt)],
+  (t) => [
+    index("conv_tenant_visitor").on(t.tenantId, t.visitorId, t.updatedAt),
+    index("conv_tenant_handoff").on(t.tenantId, t.handoffStatus, t.updatedAt),
+  ],
 );
 
 export const events = pgTable(
@@ -256,7 +306,21 @@ export const tileSettings = tileSchema.table("settings", {
 
 /* =============================== DDL =============================== */
 
-const PUBLIC_TABLES = ["accounts", "tenants", "admin_users", "services", "bookings", "leads", "conversations", "events", "message_insights", "llm_calls"];
+const PUBLIC_TABLES = [
+  "accounts",
+  "tenants",
+  "admin_users",
+  "services",
+  "bookings",
+  "leads",
+  "conversations",
+  "events",
+  "message_insights",
+  "llm_calls",
+  "hub_identities",
+  "website_domains",
+  "bot_licenses",
+];
 
 /** Chuyển bảng cũ ở public sang schema module (bản widget-norm đầu tiên để products ở public) — không mất dữ liệu */
 const moveToSchema = (table: string, schema: string) => `DO $$ BEGIN
@@ -272,6 +336,9 @@ export const DDL = [
   `CREATE SCHEMA IF NOT EXISTS tile`,
 
   /* ---- public ---- */
+  `CREATE TABLE IF NOT EXISTS bot_licenses (key text PRIMARY KEY, account_id text NOT NULL, kind text NOT NULL, tenant_id text NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS hub_identities (subject text PRIMARY KEY, account_id text NOT NULL UNIQUE, tokens text NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`,
+  `CREATE TABLE IF NOT EXISTS website_domains (domain text PRIMARY KEY, account_id text NOT NULL, token text NOT NULL, verified_at timestamptz, created_at timestamptz NOT NULL DEFAULT now())`,
   `CREATE TABLE IF NOT EXISTS accounts (id text PRIMARY KEY, name text NOT NULL, email text NOT NULL, plan text NOT NULL DEFAULT 'trial', trial_ends_at timestamptz, created_at timestamptz NOT NULL DEFAULT now())`,
   `CREATE TABLE IF NOT EXISTS tenants (id text PRIMARY KEY, account_id text NOT NULL DEFAULT '', kind text NOT NULL DEFAULT 'store', slug text NOT NULL UNIQUE, name text NOT NULL, status text NOT NULL DEFAULT 'active', settings jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`,
   `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS account_id text NOT NULL DEFAULT ''`,
@@ -320,6 +387,10 @@ export const DDL = [
   `CREATE TABLE IF NOT EXISTS tile.settings (tenant_id text PRIMARY KEY, pricing jsonb NOT NULL, ab_visualizer_percent integer NOT NULL DEFAULT 100, updated_at timestamptz NOT NULL DEFAULT now())`,
 
   // Supabase mở các schema qua PostgREST bằng anon key; bật RLS không kèm policy = chặn truy cập từ anon/authenticated.
-  ...PUBLIC_TABLES.map((t) => `ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY`),
-  ...["store.products", "tile.tiles", "tile.quotes", "tile.settings"].map((t) => `ALTER TABLE ${t} ENABLE ROW LEVEL SECURITY`),
+  ...PUBLIC_TABLES.map(
+    (t) => `ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY`,
+  ),
+  ...["store.products", "tile.tiles", "tile.quotes", "tile.settings"].map(
+    (t) => `ALTER TABLE ${t} ENABLE ROW LEVEL SECURITY`,
+  ),
 ];

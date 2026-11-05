@@ -17,7 +17,8 @@ export interface Session {
 
 function secret() {
   const s = process.env.AUTH_SECRET;
-  if (!s || s.length < 16) throw new Error("AUTH_SECRET chưa được cấu hình (tối thiểu 16 ký tự)");
+  if (!s || s.length < 16)
+    throw new Error("AUTH_SECRET chưa được cấu hình (tối thiểu 16 ký tự)");
   return new TextEncoder().encode(s);
 }
 
@@ -47,7 +48,12 @@ export async function getSession(): Promise<Session | null> {
     const { payload } = await jwtVerify(token, secret());
     // Phiên của bản cũ (chưa có accountId) coi như hết hạn
     if (!payload.accountId) return null;
-    return { userId: String(payload.userId), accountId: String(payload.accountId), tenantId: String(payload.tenantId ?? ""), name: String(payload.name) };
+    return {
+      userId: String(payload.userId),
+      accountId: String(payload.accountId),
+      tenantId: String(payload.tenantId ?? ""),
+      name: String(payload.name),
+    };
   } catch {
     return null;
   }
@@ -57,6 +63,8 @@ export async function getSession(): Promise<Session | null> {
 export async function requireSession(): Promise<Session> {
   const s = await getSession();
   if (!s) redirect("/admin/login");
+  if (process.env.HUB_CLIENT_ID && !s.userId.startsWith("hub:"))
+    redirect("/api/auth/hub/start?link=1");
   if (!s.tenantId) redirect("/admin/bots");
   return s;
 }
@@ -65,5 +73,7 @@ export async function requireSession(): Promise<Session> {
 export async function requireAccount(): Promise<Session> {
   const s = await getSession();
   if (!s) redirect("/admin/login");
+  if (process.env.HUB_CLIENT_ID && !s.userId.startsWith("hub:"))
+    redirect("/api/auth/hub/start?link=1");
   return s;
 }
