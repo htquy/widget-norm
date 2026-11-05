@@ -1,0 +1,158 @@
+import Link from "next/link";
+import { BOOKING_STATUS_LABELS, type BookingStatus } from "@/domain/booking";
+import { LEAD_STATUS_LABELS, type LeadStatus } from "@/domain/lead";
+import { formatVnd } from "@/domain/product";
+import { requireSession } from "@/infrastructure/auth/session";
+import { app } from "@/infrastructure/container";
+import { BarList, DailyBars, DailyLines, FunnelChart, S1, S2, S3, S4 } from "@/components/admin/Charts";
+import { BOOKING_TONE, Badge, Card, Empty, LEAD_TONE, PageHeader, RangeTabs, Stat, num, parseDays, pct, rangeFor } from "@/components/admin/ui";
+
+const ROUTE_LABELS: Record<string, string> = { template: "Trả lời mẫu (0 LLM)", handoff: "Chuyển nhân viên (0 LLM)", llm_simple: "LLM rẻ", llm_complex: "LLM mạnh" };
+
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
+  const s = await requireSession();
+  const days = parseDays((await searchParams).days);
+  const c = await app();
+  const range = rangeFor(days);
+  const [d, ai, ratings, counts] = await Promise.all([c.analytics.dashboard(s.tenantId, range), c.llmCalls.summary(s.tenantId, range), c.support.ratings(s.tenantId, range), c.support.counts(s.tenantId)]);
+  const k = d.kpis;
+  const noLlm = ai.turns ? (ai.turns - ai.llmTurns) / ai.turns : 0;
+
+  return (
+    <>
+      <PageHeader title="Tổng quan" subtitle={`Từ ${d.range.from} đến ${d.range.to}`} actions={<RangeTabs days={days} base="/admin" />} />
+
+      {counts.open > 0 && (
+        <Link href="/admin/conversations?handoff=open" className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-900 hover:bg-red-100">
+          <span>
+            <b>{counts.open}</b> hội thoại đang chờ nhân viên hỗ trợ
+          </span>
+          <span className="font-medium underline">Xử lý ngay</span>
+        </Link>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+        <Stat label="Khách mở chat" value={num(k.visitors)} />
+        <Stat label="Khách nhắn tin" value={num(k.conversations)} sub={k.visitors ? `${pct(k.conversations / k.visitors)} người mở chat` : undefined} />
+        <Stat label="Lịch hẹn mới" value={num(k.bookings)} />
+        <Stat label="Lead (để lại SĐT)" value={num(k.leads)} sub={`${pct(k.leadRate)} người mở chat`} />
+        <Stat label="Cần nhân viên" value={num(k.handoffs)} sub="khách được chuyển" />
+        <Stat label="Doanh thu chốt" value={formatVnd(k.revenue)} sub={`${k.won} đơn`} />
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Card title="Lượng khách theo ngày">
+          <DailyLines
+            data={d.daily}
+            series={[
+              { key: "visitors", name: "Mở chat", color: S1 },
+              { key: "conversations", name: "Nhắn tin", color: S2 },
+            ]}
+          />
+        </Card>
+        <Card title="Chuyển đổi theo ngày">
+          <DailyBars
+            data={d.daily}
+            series={[
+              { key: "bookings", name: "Đặt lịch", color: S3 },
+              { key: "leads", name: "Để lại liên hệ", color: S4 },
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <Card title="Phễu chuyển đổi" right={<span className="text-[12px] text-[var(--fg-muted)]">số khách khác nhau</span>}>
+          <FunnelChart data={d.funnel} />
+        </Card>
+        <Card title="Sản phẩm được quan tâm">
+          {d.topProducts.length ? <BarList data={d.topProducts.map((p) => ({ label: p.name, value: p.visitors }))} /> : <Empty>Chưa có lượt bấm sản phẩm.</Empty>}
+        </Card>
+        <Card title="Mức hài lòng" right={<Link href="/admin/conversations" className="text-[13px] underline">Xem hội thoại</Link>}>
+          {ratings.rated === 0 ? (
+            <Empty>Chưa có đánh giá.</Empty>
+          ) : (
+            <>
+              <p className="text-[28px] font-semibold tabular-nums">
+                {ratings.avg.toFixed(1).replace(".", ",")} <span className="text-[16px] text-amber-500" aria-hidden="true">★</span>
+                <span className="ml-2 text-[13px] font-normal text-[var(--fg-muted)]">{ratings.rated} lượt đánh giá</span>
+              </p>
+              <BarList color="#f59e0b" data={[5, 4, 3, 2, 1].map((n) => ({ label: `${n} sao`, value: ratings.distribution[n - 1] }))} />
+            </>
+          )}
+        </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Card title="Trạng thái lead" right={<Link href="/admin/leads" className="text-[13px] underline">Xem tất cả</Link>}>
+          <ul className="grid grid-cols-2 gap-2 text-[14px] sm:grid-cols-3">
+            {d.leadStatus.map((r) => (
+              <li key={r.status}>
+                <Link href={`/admin/leads?status=${r.status}`} className="flex min-h-10 items-center justify-between gap-2 rounded-lg border border-[var(--border)] px-3 hover:bg-[var(--surface-2)]">
+                  <Badge tone={LEAD_TONE[r.status]}>{LEAD_STATUS_LABELS[r.status as LeadStatus]}</Badge>
+                  <span className="tabular-nums">{r.count}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card title="Lịch hẹn tạo trong kỳ" right={<Link href="/admin/bookings" className="text-[13px] underline">Mở lịch</Link>}>
+          <ul className="grid grid-cols-2 gap-2 text-[14px] sm:grid-cols-3">
+            {d.bookingStatus.map((r) => (
+              <li key={r.status} className="flex min-h-10 items-center justify-between gap-2 rounded-lg border border-[var(--border)] px-3">
+                <Badge tone={BOOKING_TONE[r.status]}>{BOOKING_STATUS_LABELS[r.status as BookingStatus]}</Badge>
+                <span className="tabular-nums">{r.count}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
+
+      <Card title="Trợ lý AI & tầng quyết định (jev)" className="mt-4" right={<span className="text-[12px] text-[var(--fg-muted)]">quyết định: {c.chat.describeModels().decision}</span>}>
+        {ai.turns === 0 ? (
+          <Empty>Chưa có lượt trả lời nào của bot trong khoảng thời gian này.</Empty>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-3">
+            <dl className="grid grid-cols-2 gap-3 text-[14px] sm:grid-cols-3 lg:col-span-2">
+              {[
+                ["Lượt bot trả lời", num(ai.turns), `${num(ai.calls)} lần gọi LLM`],
+                ["Không cần gọi LLM", pct(noLlm), "nhờ tầng quyết định (mẫu / chuyển người)"],
+                ["Token LLM vào / ra", `${(ai.inputTokens / 1000).toFixed(1)}K / ${(ai.outputTokens / 1000).toFixed(1)}K`, `+ ${(ai.decisionTokens / 1000).toFixed(1)}K token cho jev`],
+                ["Độ trễ TB (có LLM)", `${(ai.avgLatencyMs / 1000).toFixed(1)} s`, `jev: ${(ai.avgDecisionLatencyMs / 1000).toFixed(2)} s/lượt`],
+                ["Hạ cấp sang bot luật", num(ai.fallbacks), "LLM lỗi / hết hạn mức"],
+                ["Guard sửa / chặn", `${num(ai.guardRetries)} / ${num(ai.guardBlocked)}`, "câu có số liệu không có trong dữ liệu"],
+              ].map(([label, value, sub]) => (
+                <div key={label} className="rounded-lg bg-[var(--surface-2)] p-3">
+                  <dt className="text-[12.5px] text-[var(--fg-muted)]">{label}</dt>
+                  <dd className="text-[18px] font-semibold tabular-nums">{value}</dd>
+                  <dd className="text-[12px] text-[var(--fg-muted)]">{sub}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="space-y-4">
+              <div>
+                <h3 className="mb-2 text-[13px] font-medium">Tuyến xử lý</h3>
+                <BarList data={ai.byRoute.map((r) => ({ label: ROUTE_LABELS[r.route] ?? r.route, value: r.turns }))} />
+              </div>
+              {ai.byModel.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-[13px] font-medium">Theo model</h3>
+                  <ul className="space-y-1 text-[13px]">
+                    {ai.byModel.map((m) => (
+                      <li key={m.model} className="flex justify-between gap-2">
+                        <span className="truncate font-mono text-[12px]" title={m.model}>
+                          {m.model}
+                        </span>
+                        <span className="shrink-0 tabular-nums">{num(m.turns)} lượt</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Card>
+    </>
+  );
+}

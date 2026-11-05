@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/*
+ * Token màu dùng chung (admin + trang demo). Widget dùng biến riêng (--w-*) do theme của shop quyết định.
+ * Tương phản chữ/nền ≥ 4.5:1 (WCAG AA) cho mọi cặp fg/bg bên dưới.
+ */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --border: #e3e6eb;
+  --fg: #14171c;
+  --fg-muted: #555d6b;
+  --accent: #4338ca;
+  --accent-fg: #ffffff;
+  --danger: #b42318;
+  --success: #067647;
+  --focus: #4338ca;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.embed-root,
+.embed-root body {
+  background: transparent;
+}
+
+/* Vòng focus rõ ràng cho điều hướng bàn phím (không xoá outline) */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 128, 140, 0.4);
+  border-radius: 4px;
+}
+
+@keyframes w-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes w-slide-up {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+.animate-fade-in {
+  animation: w-fade-in 0.18s ease-out;
+}
+.animate-slide-up {
+  animation: w-slide-up 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

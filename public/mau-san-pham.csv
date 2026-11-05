@@ -1,0 +1,3 @@
+sku,name,category,price,description,url,image_url,tags,in_stock,active
+SP-001,Sản phẩm mẫu A,Danh mục 1,199000,"Mô tả công dụng, đối tượng phù hợp, cách dùng.",https://example.com/sp-001,,tag1;tag2,1,1
+SP-002,Dịch vụ mẫu B,Dịch vụ,0,"Giá liên hệ — bot sẽ mời khách để lại SĐT.",,,tư vấn,1,1
