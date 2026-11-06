@@ -1,8 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import type { FileStorage } from "@/application/ports";
 
-const ROOT = process.env.STORAGE_DIR ? path.resolve(/*turbopackIgnore: true*/ process.env.STORAGE_DIR) : path.join(process.cwd(), "storage");
+const ROOT = process.env.STORAGE_DIR
+  ? path.resolve(/*turbopackIgnore: true*/ process.env.STORAGE_DIR)
+  : Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT)
+    ? path.join(tmpdir(), "storage")
+    : path.join(process.cwd(), "storage");
 
 export const CONTENT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",

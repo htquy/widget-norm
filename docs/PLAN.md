@@ -106,6 +106,8 @@ Việc nền tảng cần làm trước khi nhân rộng bot: đặt lịch **th
 
 ## 6. Nhật ký (mới nhất ở trên)
 
+- 2026-11-06 — Hỗ trợ môi trường Serverless (Vercel): PGlite tự động dùng /tmp/pglite hoặc in-memory khi không có DATABASE_URL (tránh lỗi mkdir ./data), LocalFileStorage dùng /tmp/storage, thêm fallback bí mật cho AUTH_SECRET.
+
 - 2026-11-05 — Nối API hub local cổng 3000, dùng user/session SSO chung, bỏ form mật khẩu khi bật hub và chặn local login/create-bot bypass; đăng ký OAuth client/callback/scopes và hai app/gói giá trên hub. Thay checkout chuyển trang bằng API tạo đơn/QR/polling, scope Bearer, entitlement và ticket account/bot. Khôi phục demo widget công khai theo trang; xác nhận đặt lịch AVI và báo giá gạch 20m² hoạt động. 75 test widget + 6 test hub, typecheck, lint hub, build đạt; chưa thực hiện chuyển tiền thật.
 
 - 2026-11-05 — Tái thiết kế landing, hai phong cách riêng AVI/AVI Gạch, đăng nhập và workspace/admin playground; tải skill frontend-design. Tách composition AVI để bot gạch dùng lại catalogue/grounding/cards và toàn bộ tiện ích engine. Nâng fixture Lumi thành AVI đa ngành (không đổi tenant khách). Thêm SSO PKCE, token mã hóa, domain unique + DNS TXT, license theo bot và thanh toán qua hub. Sửa skill-pages hỗ trợ tool calling JSON/SSE, OpenRouter; LLM + jev qua gateway. Qua 68 test widget + 2 test hub, typecheck hai repo, lint phần hub, build Webpack và kiểm tra desktop/mobile. Cấu hình hub thực tế và kiểm thử giao dịch/SSO thật còn chờ thông tin triển khai; xem AVI-REDESIGN.md.

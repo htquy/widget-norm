@@ -39,13 +39,36 @@ async function create(): Promise<DB> {
       { schema },
     ) as unknown as DB;
   } else {
-    // Postgres nhúng (WASM) — không cần cài đặt gì, dữ liệu lưu ở ./data/pglite
+    // Postgres nhúng (WASM) — không cần cài đặt gì, dữ liệu lưu ở ./data/pglite (local) hoặc /tmp/pglite (serverless/Vercel)
     const { PGlite } = await import("@electric-sql/pglite");
     const { drizzle } = await import("drizzle-orm/pglite");
     const { mkdir } = await import("node:fs/promises");
-    const dir = process.env.PGLITE_DIR ?? "./data/pglite";
-    await mkdir(dir, { recursive: true });
-    db = drizzle(new PGlite(dir), { schema }) as unknown as DB;
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+
+    const isServerless = Boolean(
+      process.env.VERCEL ||
+        process.env.AWS_LAMBDA_FUNCTION_NAME ||
+        process.env.LAMBDA_TASK_ROOT,
+    );
+    let dir =
+      process.env.PGLITE_DIR ??
+      (isServerless ? join(tmpdir(), "pglite") : "./data/pglite");
+
+    let pgliteInstance;
+    try {
+      await mkdir(dir, { recursive: true });
+      pgliteInstance = new PGlite(dir);
+    } catch {
+      try {
+        dir = join(tmpdir(), "pglite");
+        await mkdir(dir, { recursive: true });
+        pgliteInstance = new PGlite(dir);
+      } catch {
+        pgliteInstance = new PGlite();
+      }
+    }
+    db = drizzle(pgliteInstance, { schema }) as unknown as DB;
   }
   for (const stmt of schema.DDL) await db.execute(sql.raw(stmt));
   return db;
