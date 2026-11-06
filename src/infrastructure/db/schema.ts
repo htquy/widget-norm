@@ -372,6 +372,8 @@ export const DDL = [
   `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS handoff_reason text`,
   `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS rating integer`,
   `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS history_provider text NOT NULL DEFAULT ''`,
+  // Cột cũ (A/B variant) đã bỏ khỏi code nhưng DB cũ còn NOT NULL không default → insert lỗi 23502. Giữ dữ liệu, chỉ gỡ ràng buộc.
+  `DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'conversations' AND column_name = 'variant') THEN ALTER TABLE conversations ALTER COLUMN variant DROP NOT NULL; END IF; END $$`,
   `CREATE INDEX IF NOT EXISTS conv_tenant_visitor ON conversations (tenant_id, visitor_id, updated_at)`,
   `CREATE INDEX IF NOT EXISTS conv_tenant_handoff ON conversations (tenant_id, handoff_status, updated_at)`,
   `CREATE TABLE IF NOT EXISTS events (id bigserial PRIMARY KEY, tenant_id text NOT NULL, visitor_id text NOT NULL, type text NOT NULL, variant text NOT NULL DEFAULT '', conversation_id text, ref_id text, value bigint, created_at timestamptz NOT NULL DEFAULT now())`,

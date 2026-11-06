@@ -87,9 +87,9 @@ export function getDb(): Promise<DB> {
     throw e;
   });
   // Also upgrade an existing dev connection preserved by HMR, without opening a second PGlite instance.
-  if (g.__normSchemaVersion !== "avi-v3") {
+  if (g.__normSchemaVersion !== "avi-v4") {
     g.__normSchemaReady = undefined;
-    g.__normSchemaVersion = "avi-v3";
+    g.__normSchemaVersion = "avi-v4";
   }
   g.__normSchemaReady ??= g.__normDb
     .then(async (db) => {
