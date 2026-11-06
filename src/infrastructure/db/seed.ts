@@ -57,10 +57,131 @@ interface SeedDeps {
  */
 export async function seedIfEmpty(db: DB, deps: SeedDeps) {
   const existing = await db.select({ id: tenants.id }).from(tenants).limit(1);
-  if (existing.length > 0) return upgradeLumiDemo(db, deps);
+  if (existing.length > 0) {
+    await upgradeLumiDemo(db, deps);
+    if (!process.env.DATABASE_URL || process.env.SEED_DEMO === "true") {
+      await ensureDemoBots(db, deps);
+    }
+    return;
+  }
   if (!process.env.DATABASE_URL || process.env.SEED_DEMO === "true")
     return seedDemo(db, deps);
   await bootstrap(deps);
+}
+
+/** Đảm bảo cả hai bot demo avi-demo và gach-dep-demo đều tồn tại khi SEED_DEMO=true hoặc PGlite */
+async function ensureDemoBots(db: DB, deps: SeedDeps) {
+  const avi = await deps.tenants.bySlug(DEMO_SLUG).catch(() => null);
+  const tile = await deps.tenants.bySlug(DEMO_TILE_SLUG).catch(() => null);
+  if (avi && tile) return;
+
+  const demoUser = await deps.users.findByEmail(DEMO_EMAIL).catch(() => null);
+  let accountId: string;
+  if (demoUser) {
+    accountId = demoUser.accountId;
+  } else {
+    const existingTenant = await db.select({ accountId: tenants.accountId }).from(tenants).limit(1);
+    if (existingTenant[0]?.accountId) {
+      accountId = existingTenant[0].accountId;
+    } else {
+      const account = await deps.accounts.create({
+        name: "Tài khoản demo",
+        email: DEMO_EMAIL,
+        plan: "pro",
+        trialEndsAt: null,
+      });
+      accountId = account.id;
+      await deps.users.create({
+        accountId: account.id,
+        email: DEMO_EMAIL,
+        passwordHash: await deps.hasher.hash(DEMO_PASSWORD),
+        name: "Chủ shop demo",
+        role: "owner",
+      });
+    }
+  }
+
+  if (!avi) {
+    const lumiBase = defaultSettings("AVI Shop");
+    const lumi = await deps.tenants.createBot(accountId, "store", "AVI Shop", {
+      industry: "bán lẻ đa ngành: thời trang, gia dụng, phụ kiện và quà tặng",
+      phone: "0901 234 567",
+      email: "hello@avi.demo",
+      address: "88 Lê Lợi, Q.1, TP.HCM",
+      knowledgeBase: DEMO_KNOWLEDGE,
+      botInstructions:
+        "Hỏi nhu cầu và ngân sách trước khi gợi ý. Chỉ dùng dữ liệu danh mục và chính sách đã nhập.",
+      quickReplies: [
+        "Quà tặng dưới 300.000đ",
+        "Đặt lịch tư vấn",
+        "Phí giao hàng",
+        "Gặp nhân viên",
+      ],
+      handoff: { ...lumiBase.handoff, zaloUrl: "https://zalo.me/0901234567" },
+      theme: {
+        ...lumiBase.theme,
+        primaryColor: "#5f45e4",
+        botName: "AVI",
+        headerSubtitle: "Trợ lý mua sắm của bạn",
+        proactiveMessage: "Bạn đang tìm món đồ nào? Để AVI giúp nhé!",
+      },
+    } satisfies Partial<TenantSettings>);
+    await fixSlug(db, lumi.id, DEMO_SLUG);
+    const lumiItems = await deps.modules.store.seedDemo(lumi.id);
+    const lumiServices = await createServices(deps, lumi.id, DEMO_SERVICES);
+    if (process.env.SEED_DEMO_ANALYTICS !== "false") {
+      await seedDemoAnalytics(db, {
+        tenantId: lumi.id,
+        items: lumiItems,
+        services: lumiServices,
+        questions: DEMO_QUESTIONS,
+        interestEvent: "product_clicked",
+        seed: 42,
+        ab: false,
+      });
+    }
+  }
+
+  if (!tile) {
+    const tileBase = defaultSettings("Gạch Đẹp Demo");
+    const t = await deps.tenants.createBot(accountId, "tile", "Gạch Đẹp Demo", {
+      industry: "gạch ốp lát & vật liệu hoàn thiện",
+      phone: "0901 234 567",
+      address: "123 Nguyễn Trãi, Q.1, TP.HCM",
+      greeting:
+        "Xin chào! Mình là trợ lý của Gạch Đẹp Demo. Anh/chị cần lát sàn hay ốp tường phòng nào ạ? Gửi ảnh phòng để mình cho xem thử gạch nhé.",
+      knowledgeBase: DEMO_TILE_KNOWLEDGE,
+      botInstructions: "Xưng em, gọi khách là anh/chị.",
+      quickReplies: [
+        "Mẫu lát phòng khách",
+        "Gạch chống trơn phòng tắm",
+        "Đặt lịch khảo sát tại nhà",
+        "Gặp nhân viên",
+      ],
+      theme: {
+        ...tileBase.theme,
+        primaryColor: "#15476d",
+        botName: "Gạch Đẹp",
+        headerSubtitle: "Tư vấn & xem thử gạch",
+        launcherLabel: "Tư vấn & xem thử gạch",
+        radius: "sharp",
+      },
+    } satisfies Partial<TenantSettings>);
+    await fixSlug(db, t.id, DEMO_TILE_SLUG);
+    const tileItems = await deps.modules.tile.seedDemo(t.id);
+    const tileServices = await createServices(deps, t.id, DEMO_TILE_SERVICES);
+    if (process.env.SEED_DEMO_ANALYTICS !== "false") {
+      await seedDemoAnalytics(db, {
+        tenantId: t.id,
+        items: tileItems,
+        services: tileServices,
+        questions: DEMO_TILE_QUESTIONS,
+        interestEvent: "preview_rendered",
+        seed: 7,
+        ab: true,
+      });
+    }
+  }
 }
 
 /** Only the named built-in fixture is upgraded; customer tenants are never rewritten. */

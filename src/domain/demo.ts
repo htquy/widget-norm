@@ -3,10 +3,10 @@ export function isPublicDemo(
   tenant: { slug: string; kind: string },
   account: { email: string } | null,
 ) {
-  return (
-    account?.email === "admin@demo.vn" &&
-    ((tenant.kind === "store" &&
+  const isDemoSlug =
+    (tenant.kind === "store" &&
       ["avi-demo", "lumi-demo"].includes(tenant.slug)) ||
-      (tenant.kind === "tile" && tenant.slug === "gach-dep-demo"))
-  );
+    (tenant.kind === "tile" && tenant.slug === "gach-dep-demo");
+
+  return isDemoSlug && (!account?.email || account.email === "admin@demo.vn");
 }
