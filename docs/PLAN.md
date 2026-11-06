@@ -106,6 +106,7 @@ Việc nền tảng cần làm trước khi nhân rộng bot: đặt lịch **th
 
 ## 6. Nhật ký (mới nhất ở trên)
 
+- 2026-11-06 — Nâng cấp DDL tương thích Postgres Supabase (gỡ NOT NULL các cột variant/source/meta/won_value/history_provider), hoàn tất nạp dữ liệu mẫu ban đầu (2 bot demo avi-demo & gach-dep-demo, 6 sản phẩm, 10 mẫu gạch, 231 leads, 134 bookings, >13.000 events) và đồng bộ ảnh mẫu lên hệ thống lưu trữ R2/storage.
 - 2026-11-06 — Hỗ trợ môi trường Serverless (Vercel): PGlite tự động dùng /tmp/pglite hoặc in-memory khi không có DATABASE_URL (tránh lỗi mkdir ./data), LocalFileStorage dùng /tmp/storage, thêm fallback bí mật cho AUTH_SECRET.
 
 - 2026-11-05 — Nối API hub local cổng 3000, dùng user/session SSO chung, bỏ form mật khẩu khi bật hub và chặn local login/create-bot bypass; đăng ký OAuth client/callback/scopes và hai app/gói giá trên hub. Thay checkout chuyển trang bằng API tạo đơn/QR/polling, scope Bearer, entitlement và ticket account/bot. Khôi phục demo widget công khai theo trang; xác nhận đặt lịch AVI và báo giá gạch 20m² hoạt động. 75 test widget + 6 test hub, typecheck, lint hub, build đạt; chưa thực hiện chuyển tiền thật.

@@ -382,7 +382,7 @@ async function fixSlug(db: DB, id: string, slug: string) {
   await db.update(tenants).set({ slug }).where(eq(tenants.id, id));
 }
 
-async function createServices(
+export async function createServices(
   deps: SeedDeps,
   tenantId: string,
   list: readonly {
@@ -408,7 +408,7 @@ async function createServices(
 }
 
 /** 30 ngày dữ liệu hoạt động giả lập — CHỈ cho shop demo để xem thử dashboard và báo cáo. */
-async function seedDemoAnalytics(
+export async function seedDemoAnalytics(
   db: DB,
   o: {
     tenantId: string;

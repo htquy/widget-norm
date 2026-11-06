@@ -8,5 +8,5 @@ export function isPublicDemo(
       ["avi-demo", "lumi-demo"].includes(tenant.slug)) ||
     (tenant.kind === "tile" && tenant.slug === "gach-dep-demo");
 
-  return isDemoSlug && (!account?.email || account.email === "admin@demo.vn");
+  return isDemoSlug && account?.email === "admin@demo.vn";
 }

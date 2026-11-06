@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:migrate": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/migrate.ts",
+    "db:seed": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/seed-data.ts",
     "models": "node scripts/download-models.mjs",
     "eval:decision": "tsx --env-file-if-exists=.env.local scripts/eval-decision.ts"
   },
