@@ -13,4 +13,4 @@ next-env.d.ts
 # Model ONNX + ONNX Runtime (tải bằng: npm run models)
 public/models/
 public/ort/
-storage/
+/storage/
