@@ -1,11 +1,13 @@
 "use client";
 
+import { useTr } from "@/components/widget/i18n";
 import { useEffect, useMemo, useState } from "react";
 import type {
   ExtHelpers,
   WidgetExtension,
 } from "@/components/widget/extension";
 import type { LayoutPattern } from "../domain/quote";
+import type { SurfaceKind } from "../domain/tile";
 import { tileApi, type QuoteRecord, type TileCard } from "./api";
 import { LeadForm, QuoteForm, QuoteSummary } from "./QuotePanel";
 import { TileCards } from "./TileCards";
@@ -19,6 +21,7 @@ interface PanelData {
   previewBase64?: string;
   area?: number;
   pattern?: LayoutPattern;
+  surface?: SurfaceKind;
 }
 
 /** Tải catalogue gạch (đủ cho trình xem thử/báo giá) rồi hiện panel tương ứng */
@@ -31,6 +34,7 @@ function TilePanel({
   data: PanelData;
   h: ExtHelpers;
 }) {
+  const t = useTr();
   const api = useMemo(
     () => tileApi(h.tenant, h.visitorId),
     [h.tenant, h.visitorId],
@@ -58,7 +62,7 @@ function TilePanel({
         onDone={() => {
           h.closePanel();
           h.pushLocal(
-            "Em đã nhận thông tin liên hệ. Chuyên viên của shop sẽ gọi điện/Zalo tư vấn và gửi file báo giá chi tiết sớm nhất ạ!",
+            t("Em đã nhận thông tin liên hệ. Chuyên viên của shop sẽ gọi điện/Zalo tư vấn và gửi file báo giá chi tiết sớm nhất ạ!"),
           );
         }}
       />
@@ -69,7 +73,7 @@ function TilePanel({
   if (!tiles)
     return (
       <p className="p-6 text-center text-[14px] text-[var(--w-muted)]">
-        Đang tải danh mục…
+        {t("Đang tải danh mục…")}
       </p>
     );
 
@@ -86,6 +90,7 @@ function TilePanel({
             tileId: r.tileId,
             area: r.areaM2,
             pattern: r.pattern,
+            surface: r.surface,
           })
         }
         onLead={(r) =>
@@ -93,7 +98,7 @@ function TilePanel({
         }
         onAsk={() => {
           h.closePanel();
-          h.send("Mình đã thử gạch trên ảnh phòng, nên chọn mẫu nào cho hợp?");
+          h.send(t("Mình đã thử gạch trên ảnh phòng, nên chọn mẫu nào cho hợp?"));
         }}
       />
     );
@@ -105,12 +110,13 @@ function TilePanel({
       initialTileId={data.tileId}
       initialArea={data.area}
       initialPattern={data.pattern}
+      surface={data.surface}
       conversationId={h.conversationId}
       onClose={h.closePanel}
       onDone={(q: QuoteRecord) => {
         setQuoteId(q.id);
         h.closePanel();
-        h.pushLocal("Em gửi anh/chị báo giá tạm tính theo yêu cầu:", {
+        h.pushLocal(t("Em gửi anh/chị báo giá tạm tính theo yêu cầu:"), {
           quote: q,
         });
       }}
@@ -167,6 +173,7 @@ export const tileExtension: WidgetExtension = {
   },
 
   quickActions(h) {
+    const t = h.tr;
     const visualizerOn = h.config.ext.variant === "visualizer";
     return (
       <>
@@ -176,7 +183,7 @@ export const tileExtension: WidgetExtension = {
             onClick={() => h.openPanel("visualizer")}
             className={`${btn} bg-[var(--w-primary)] text-[var(--w-on-primary)] hover:brightness-110`}
           >
-            Ướm thử ảnh phòng
+            {t("Ướm thử ảnh phòng")}
           </button>
         )}
         <button
@@ -184,7 +191,7 @@ export const tileExtension: WidgetExtension = {
           onClick={() => h.openPanel("quote")}
           className={`${btn} border border-[var(--w-border)] bg-[var(--w-surface)] text-[var(--w-fg)] hover:border-[var(--w-primary)]`}
         >
-          Dự toán chi phí
+          {t("Dự toán chi phí")}
         </button>
       </>
     );

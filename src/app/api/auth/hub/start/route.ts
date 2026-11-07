@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   challenge,
   hubConfig,
+  publicBase,
   randomToken,
   seal,
 } from "@/infrastructure/hub/client";
@@ -10,7 +11,7 @@ import { getSession } from "@/infrastructure/auth/session";
 
 export async function GET(req: Request) {
   try {
-    const cfg = hubConfig();
+    const cfg = hubConfig(req);
     const state = randomToken(),
       verifier = randomToken();
     const requested = new URL(req.url).searchParams.get("returnTo") ?? "";
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
     return NextResponse.redirect(
       new URL(
         "/admin/login?error=hub_unavailable",
-        process.env.PUBLIC_BASE_URL ?? "http://localhost:3000",
+        publicBase(req),
       ),
     );
   }

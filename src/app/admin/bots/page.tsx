@@ -1,3 +1,7 @@
+import { localizeMeta } from "@/bots/localize";
+import { getT } from "@/lib/i18n/server";
+import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { ThemeToggle } from "@/components/site/ThemeToggle";
 import Link from "next/link";
 import { planById } from "@/domain/account";
 import { BOT_METAS, metaByKind } from "@/bots/catalog";
@@ -11,6 +15,7 @@ export const dynamic = "force-dynamic";
 
 /** Quản lý các chatbot của tài khoản: chọn bot để quản trị, thêm bot mới (theo giới hạn gói) */
 export default async function BotsPage() {
+  const { t, locale } = await getT();
   const s = await requireAccount();
   const c = await app();
   const [account, bots] = await Promise.all([c.tenants.account(s.accountId), c.tenants.listByAccount(s.accountId)]);
@@ -19,12 +24,19 @@ export default async function BotsPage() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
       <PageHeader
-        title="Chatbot của bạn"
-        subtitle={`Gói ${plan.name}: ${bots.length}/${plan.maxBots} chatbot${account?.trialEndsAt ? ` · dùng thử đến ${account.trialEndsAt.toLocaleDateString("vi-VN")}` : ""}`}
+        title={t("Chatbot của bạn")}
+        subtitle={`${t("Gói {plan}: {n}/{max} chatbot", { plan: plan.name, n: bots.length, max: plan.maxBots })}${account?.trialEndsAt ? ` · ${t("dùng thử đến {date}", { date: account.trialEndsAt.toLocaleDateString(locale === "en" ? "en-GB" : "vi-VN") })}` : ""}`}
         actions={
-          <form action={logoutAction}>
-            <button className="min-h-10 px-2 text-[14px] underline">Đăng xuất</button>
-          </form>
+          <div className="flex items-center gap-2">
+            <Link href="/admin/languages" className="min-h-10 px-2 text-[14px] leading-10 underline">
+              {t("Quản lý ngôn ngữ")}
+            </Link>
+            <LanguageSwitch />
+            <ThemeToggle />
+            <form action={logoutAction}>
+              <button className="min-h-10 px-2 text-[14px] underline">{t("Đăng xuất")}</button>
+            </form>
+          </div>
         }
       />
       <ul className="grid gap-4 sm:grid-cols-2">
@@ -37,24 +49,24 @@ export default async function BotsPage() {
                   <p className="truncate text-[16px] font-semibold">{b.name}</p>
                   <p className="text-[13px] text-[var(--fg-muted)]">{m.name}</p>
                 </div>
-                <Badge tone={b.status === "active" ? "green" : "gray"}>{b.status === "active" ? "Đang chạy" : "Tạm dừng"}</Badge>
+                <Badge tone={b.status === "active" ? "green" : "gray"}>{b.status === "active" ? t("Đang chạy") : t("Tạm dừng")}</Badge>
               </div>
               <p className="mt-2 break-all font-mono text-[12px] text-[var(--fg-muted)]">/embed/{b.slug}</p>
               <form action={switchBotAction} className="mt-4">
                 <input type="hidden" name="id" value={b.id} />
-                <button className={btnPrimary}>Quản trị chatbot này</button>
+                <button className={btnPrimary}>{t("Quản trị chatbot này")}</button>
               </form>
             </li>
           );
         })}
       </ul>
 
-      <Card title="Thêm chatbot" className="mt-8">
+      <Card title={t("Thêm chatbot")} className="mt-8">
         {canAdd ? (
-          <CreateBotForm kinds={BOT_METAS.map((m) => ({ kind: m.kind, name: m.name, tagline: m.tagline }))} />
+          <CreateBotForm kinds={BOT_METAS.map((raw) => localizeMeta(raw, t)).map((m) => ({ kind: m.kind, name: m.name, tagline: m.tagline }))} />
         ) : (
           <p className="text-[14px] text-[var(--fg-muted)]">
-            Gói {plan.name} đã dùng hết {plan.maxBots} chatbot. <Link href="/pricing" className="underline">Xem các gói cao hơn</Link>.
+            {t("Gói {plan} đã dùng hết {max} chatbot.", { plan: plan.name, max: plan.maxBots })} <Link href="/pricing" className="underline">{t("Xem các gói cao hơn")}</Link>.
           </p>
         )}
       </Card>

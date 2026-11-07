@@ -63,12 +63,13 @@
       ".wn-btn:focus-visible{outline:3px solid " + cfg.primaryColor + ";outline-offset:3px}" +
       ".wn-btn .wn-x{display:none}.wn-open .wn-btn .wn-x{display:inline-flex}.wn-open .wn-btn .wn-c{display:none}" +
       ".wn-open .wn-btn .wn-l{display:none}.wn-open .wn-btn{width:56px;height:56px;padding:0;border-radius:999px}" +
-      ".wn-frame{position:fixed;" + side + ":" + ox + ";bottom:calc(" + oy + " + 68px);z-index:2147483001;width:400px;height:min(680px,calc(100vh - " + (parseInt(oy, 10) + 96) + "px));border:0;border-radius:" + radius + "px;box-shadow:0 24px 60px -12px rgba(0,0,0,.35);background:#fff;opacity:0;visibility:hidden;transform:translateY(12px) scale(.98);transform-origin:bottom " + side + ";transition:opacity .2s ease,transform .2s ease,visibility .2s}" +
+      ".wn-frame{position:fixed;" + side + ":" + ox + ";bottom:calc(" + oy + " + 68px);z-index:2147483001;width:400px;height:min(680px,calc(100vh - " + (parseInt(oy, 10) + 96) + "px));border:0;border-radius:" + radius + "px;box-shadow:0 24px 60px -12px rgba(0,0,0,.35);background:#fff;opacity:0;visibility:hidden;transform:translateY(12px) scale(.98);transform-origin:bottom " + side + ";transition:opacity .2s ease,transform .2s ease,visibility .2s,width .22s ease,height .22s ease}" +
+      ".wn-frame.wn-big{width:min(1180px,calc(100vw - 2*" + ox + "));height:calc(100vh - " + oy + " - 84px);height:calc(100dvh - " + oy + " - 84px)}" +
       ".wn-open .wn-frame{opacity:1;visibility:visible;transform:none}" +
       ".wn-tip{position:fixed;" + side + ":" + ox + ";bottom:calc(" + oy + " + 68px);z-index:2147483000;max-width:260px;background:#fff;color:#15181d;border-radius:14px;padding:12px 36px 12px 14px;font:400 14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.18);cursor:pointer}" +
       ".wn-tip button{position:absolute;top:4px;" + (side === "left" ? "left" : "right") + ":4px;width:32px;height:32px;border:0;background:transparent;color:#5b6371;font-size:18px;cursor:pointer;border-radius:999px}" +
       ".wn-open .wn-tip{display:none}" +
-      "@media (max-width:540px){.wn-frame{left:0;right:0;bottom:0;width:100vw;height:100dvh;border-radius:0}.wn-open .wn-btn{display:none}}" +
+      "@media (max-width:540px){.wn-frame,.wn-frame.wn-big{left:0;right:0;bottom:0;width:100vw;height:100dvh;border-radius:0}.wn-open .wn-btn{display:none}}" +
       "@media (prefers-reduced-motion:reduce){.wn-btn,.wn-frame{transition:none}}";
 
     var style = document.createElement("style");
@@ -138,7 +139,10 @@
     btn.addEventListener("click", toggle);
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && root.classList.contains("wn-open")) close(); });
     window.addEventListener("message", function (e) {
-      if (e.origin === base && e.data && e.data.type === "wn:close") close();
+      if (e.origin !== base || !e.data) return;
+      if (e.data.type === "wn:close") close();
+      // Khách phóng to / thu nhỏ khung chat (vd để xem studio nội thất, phòng gạch rõ hơn)
+      if (e.data.type === "wn:expand" && frame) frame.classList.toggle("wn-big", !!e.data.expanded);
     });
 
     var opened = false;

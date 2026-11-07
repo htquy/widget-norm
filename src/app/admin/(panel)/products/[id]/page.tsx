@@ -23,7 +23,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         }
       />
       <Card>
-        <ProductForm product={{ id: p.id, sku: p.sku, name: p.name, category: p.category, price: p.price, description: p.description, url: p.url, imageUrl: p.imageUrl, tags: p.tags, inStock: p.inStock, active: p.active }} />
+        <ProductForm product={{ id: p.id, sku: p.sku, name: p.name, category: p.category, price: p.price, description: p.description, url: p.url, imageUrl: p.imageUrl, tags: p.tags, inStock: p.inStock, active: p.active, pricing: p.pricing }} />
       </Card>
       <form action={deleteProductAction} className="mt-4">
         <input type="hidden" name="id" value={p.id} />

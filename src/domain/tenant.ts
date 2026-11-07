@@ -1,5 +1,6 @@
 import { defaultBookingSettings, defaultHours, sanitizeHours, type BookingSettings, type WeeklyHours } from "./booking";
 import { defaultTheme, sanitizeTheme, type WidgetTheme } from "./theme";
+import { defaultTexts, isChatLang, themeTexts, type ChatLang } from "./chat-text";
 
 export interface HandoffSettings {
   /** Bật gợi ý liên hệ nhân viên khi bot gặp câu khó */
@@ -17,6 +18,8 @@ export interface HandoffSettings {
 export const defaultHandoff = (): HandoffSettings => ({ enabled: true, zaloUrl: "", messengerUrl: "", escalateAfter: 2, liveChat: true });
 
 export interface TenantSettings {
+  /** Ngôn ngữ chatbot trả lời khách và hiện trong widget (không phải ngôn ngữ giao diện admin) */
+  language: ChatLang;
   shopName: string;
   /** Ngành hàng, vd "mỹ phẩm & spa" — giúp bot hiểu bối cảnh */
   industry: string;
@@ -43,7 +46,7 @@ export interface TenantSettings {
 export const MAX_KNOWLEDGE_LENGTH = 20_000;
 
 /** Loại chatbot — mỗi loại là một module trong src/bots/<kind> và một schema DB riêng */
-export const BOT_KINDS = ["store", "tile"] as const;
+export const BOT_KINDS = ["store", "tile", "education", "furniture"] as const;
 export type BotKind = (typeof BOT_KINDS)[number];
 export const isBotKind = (v: unknown): v is BotKind => (BOT_KINDS as readonly unknown[]).includes(v);
 
@@ -60,10 +63,11 @@ export interface Tenant {
   createdAt: Date;
 }
 
-export const defaultSettings = (shopName: string): TenantSettings => ({
+export const defaultSettings = (shopName: string, language: ChatLang = "vi"): TenantSettings => ({
+  language,
   shopName,
   industry: "",
-  greeting: `Xin chào! Mình là trợ lý của ${shopName}. Mình có thể tư vấn sản phẩm, đặt lịch hẹn hoặc kết nối bạn với nhân viên.`,
+  greeting: defaultTexts(language, shopName).greeting,
   phone: "",
   email: "",
   address: "",
@@ -71,19 +75,21 @@ export const defaultSettings = (shopName: string): TenantSettings => ({
   webhookUrl: "",
   botInstructions: "",
   knowledgeBase: "",
-  quickReplies: ["Tư vấn sản phẩm", "Đặt lịch hẹn", "Giờ mở cửa", "Gặp nhân viên"],
+  quickReplies: defaultTexts(language, shopName).quickReplies,
   hours: defaultHours(),
   booking: defaultBookingSettings(),
   handoff: defaultHandoff(),
-  theme: defaultTheme(shopName),
+  theme: { ...defaultTheme(shopName), ...themeTexts(language, shopName) },
 });
 
 /** Ghép cài đặt lưu trong DB với mặc định (DB cũ thiếu trường mới không làm vỡ app). */
 export function normalizeSettings(raw: Partial<TenantSettings> & { shopName: string }): TenantSettings {
-  const d = defaultSettings(raw.shopName);
+  const language = isChatLang(raw.language) ? raw.language : "vi";
+  const d = defaultSettings(raw.shopName, language);
   return {
     ...d,
     ...raw,
+    language,
     quickReplies: Array.isArray(raw.quickReplies) ? raw.quickReplies.slice(0, 6) : d.quickReplies,
     hours: sanitizeHours(raw.hours),
     booking: { ...d.booking, ...raw.booking },

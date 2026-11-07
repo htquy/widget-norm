@@ -15,6 +15,8 @@ export interface ProductCard {
   url: string;
   inStock: boolean;
   summary: string;
+  /** Có công thức báo giá: bot gọi calculate_estimate */
+  quotable?: string;
 }
 
 export const toCard = (p: Product): ProductCard => ({
@@ -28,6 +30,7 @@ export const toCard = (p: Product): ProductCard => ({
   url: p.url,
   inStock: p.inStock,
   summary: p.description.slice(0, 160),
+  quotable: p.pricing ? "Có báo giá theo công thức (gọi calculate_estimate)" : undefined,
 });
 
 export function makeCatalog(deps: { products: ProductRepository }) {

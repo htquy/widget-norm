@@ -1,4 +1,5 @@
 import { fold } from "@/domain/text";
+import type { PricingRule } from "./estimate";
 
 export interface Product {
   id: string;
@@ -15,6 +16,8 @@ export interface Product {
   tags: string[];
   inStock: boolean;
   active: boolean;
+  /** Công thức báo giá theo diện tích/độ phủ/số lượng; null = chỉ có giá niêm yết */
+  pricing: PricingRule | null;
   createdAt: Date;
 }
 

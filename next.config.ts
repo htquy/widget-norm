@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite", "pg"],
+  // Mô hình 3D demo đọc từ đĩa khi nạp dữ liệu demo → đưa vào bản build serverless
+  outputFileTracingIncludes: { "/**": ["./assets/demo-furniture/**"] },
   experimental: { serverActions: { bodySizeLimit: "4mb" } },
   async headers() {
     return [

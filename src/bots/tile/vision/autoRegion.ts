@@ -4,8 +4,11 @@
  */
 import { quadFromMask, type Pt } from "./homography";
 import type { Candidate, PromptPoint } from "./segmenter";
+import type { SurfaceKind } from "@/bots/tile/domain/tile";
 
-export type Surface = "floor" | "wall";
+export type Surface = SurfaceKind;
+/** Sàn trong nhà và sân ngoài trời đều là mặt nằm ngang ở nửa dưới ảnh. */
+const isGround = (s: Surface) => s === "floor" || s === "outdoor";
 
 /**
  * Các bộ điểm gợi ý tự động. SAM cần điểm chạm; khách chưa chạm nên ta "chạm giúp" vào chỗ thường là sàn
@@ -13,7 +16,7 @@ export type Surface = "floor" | "wall";
  */
 export function autoPrompts(surface: Surface): PromptPoint[][] {
   const p = (x: number, y: number, positive = true): PromptPoint => ({ x, y, positive });
-  if (surface === "floor") {
+  if (isGround(surface)) {
     return [
       [p(0.5, 0.9)],
       [p(0.5, 0.9), p(0.25, 0.86), p(0.75, 0.86)],
@@ -21,9 +24,14 @@ export function autoPrompts(surface: Surface): PromptPoint[][] {
       [p(0.5, 0.88), p(0.5, 0.2, false)],
     ];
   }
-  // Tường: không biết tường nằm đâu → rải lưới điểm ở nửa trên ảnh, lấy mặt nạ tốt nhất.
+  // Tường / mái: không biết nằm đâu → rải lưới điểm ở nửa trên ảnh, lấy mặt nạ tốt nhất.
   const sets: PromptPoint[][] = [];
-  for (const y of [0.25, 0.4, 0.55]) for (const x of [0.2, 0.5, 0.8]) sets.push([p(x, y)]);
+  const rows = surface === "roof" ? [0.15, 0.28, 0.4] : [0.25, 0.4, 0.55];
+  for (const y of rows) for (const x of [0.2, 0.5, 0.8]) sets.push([p(x, y)]);
+  if (surface === "roof") {
+    sets.push([p(0.35, 0.25), p(0.65, 0.25), p(0.5, 0.8, false)]);
+    return sets;
+  }
   sets.push([p(0.5, 0.35), p(0.5, 0.95, false)], [p(0.25, 0.35), p(0.75, 0.35), p(0.5, 0.97, false)]);
   return sets;
 }
@@ -91,14 +99,20 @@ export function keepComponent(mask: Uint8Array, w: number, h: number, seeds: Pt[
 
 function stats(mask: Uint8Array, w: number, h: number) {
   let n = 0,
-    sy = 0;
+    sy = 0,
+    top = 0,
+    bottom = 0;
+  const yTop = 0.35 * h,
+    yBottom = 0.85 * h;
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++)
       if (mask[y * w + x]) {
         n++;
         sy += y;
+        if (y < yTop) top++;
+        else if (y > yBottom) bottom++;
       }
-  return { fraction: n / (w * h), centroidY: n ? sy / n / h : 0 };
+  return { fraction: n / (w * h), centroidY: n ? sy / n / h : 0, topShare: n ? top / n : 0, bottomShare: n ? bottom / n : 0 };
 }
 
 export interface PickedRegion {
@@ -121,12 +135,17 @@ export function pickRegion(perPrompt: Candidate[][], prompts: PromptPoint[][], s
     const seeds = prompts[i].filter((p) => p.positive).map((p) => [p.x, p.y] as Pt);
     for (const c of cands) {
       const mask = keepComponent(c.mask, c.width, c.height, seeds);
-      const { fraction, centroidY } = stats(mask, c.width, c.height);
+      const { fraction, centroidY, topShare, bottomShare } = stats(mask, c.width, c.height);
       if (fraction < 0.05 || fraction > 0.92) continue;
-      if (surface === "floor" && centroidY < 0.5) continue;
+      if (isGround(surface) && centroidY < 0.5) continue;
       if (surface === "wall" && centroidY > 0.7) continue;
+      if (surface === "roof" && centroidY > 0.6) continue;
       // Ưu tiên mặt nạ SAM tự tin, và đủ lớn để là "cả sàn/cả tường" chứ không phải một mảng nhỏ.
-      const score = c.score * (0.45 + 0.55 * Math.min(1, fraction / 0.3));
+      let score = c.score * (0.45 + 0.55 * Math.min(1, fraction / 0.3));
+      // Sàn/sân hiếm khi lên tới 1/3 trên của ảnh: phần lớn mặt nạ ở đó = đã lan sang tường → phạt.
+      if (isGround(surface)) score *= 1 - Math.min(0.9, topShare * 2.5);
+      // Tường/mái lan xuống sát đáy ảnh = đã lan ra sàn → phạt nhẹ.
+      else score *= 1 - Math.min(0.6, bottomShare * 1.5);
       if (!best || score > best.score) best = { mask, width: c.width, height: c.height, score, fraction, promptIndex: i };
     }
   });
@@ -215,7 +234,7 @@ function polygonArea(q: Pt[]): number {
 
 /** Quad hợp lệ (đủ lớn) — nếu không thì để UI dùng quad mặc định. */
 export function quadFromRegion(mask: Uint8Array, w: number, h: number, surface: Surface): Pt[] | null {
-  const q = (surface === "floor" ? quadForFloor(mask, w, h) : null) ?? quadFromMask(mask, w, h);
+  const q = (isGround(surface) ? quadForFloor(mask, w, h) : null) ?? quadFromMask(mask, w, h);
   if (!q || polygonArea(q) < 0.03) return null;
   return q;
 }

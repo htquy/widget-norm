@@ -14,3 +14,6 @@ next-env.d.ts
 public/models/
 public/ort/
 /storage/
+
+# Mô hình 3D demo (CC0, ~26 MB) — tải bằng: node scripts/fetch-demo-furniture.mjs
+/assets/demo-furniture/

@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n/server";
 import Link from "next/link";
 import { requireSession } from "@/infrastructure/auth/session";
 import { app } from "@/infrastructure/container";
@@ -8,6 +9,7 @@ import { Card, Empty, PageHeader, RangeTabs, Stat, btnSecondary, fmtDateTime, nu
 const SENTIMENT: Record<string, string> = { positive: "Tích cực", neutral: "Trung lập", negative: "Tiêu cực" };
 
 export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
+  const { t } = await getT();
   const s = await requireSession();
   const days = parseDays((await searchParams).days);
   const c = await app();
@@ -18,27 +20,27 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <PageHeader
-        title="Phân tích nhu cầu khách"
-        subtitle="Mỗi câu hỏi được tầng quyết định (jev) gắn nhãn, chủ đề, cảm xúc và nhu cầu — tổng hợp tại đây"
+        title={t("Phân tích nhu cầu khách")}
+        subtitle={t("Mỗi câu hỏi được tầng quyết định (jev) gắn nhãn, chủ đề, cảm xúc và nhu cầu — tổng hợp tại đây")}
         actions={
           <div className="flex flex-wrap gap-2">
             <RangeTabs days={days} base="/admin/insights" />
             <a href={`/admin/export/questions?days=${days}`} className={btnSecondary}>
-              Xuất CSV câu hỏi
+              {t("Xuất CSV câu hỏi")}
             </a>
           </div>
         }
       />
 
       {r.total === 0 ? (
-        <Empty>Chưa có câu hỏi nào trong khoảng thời gian này.</Empty>
+        <Empty>{t("Chưa có câu hỏi nào trong khoảng thời gian này.")}</Empty>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Stat label="Câu hỏi của khách" value={num(r.total)} />
-            <Stat label="Bot chưa trả lời được" value={num(r.unansweredCount)} sub={pct(r.unansweredCount / r.total)} />
-            <Stat label="Cảm xúc tiêu cực" value={num(neg)} sub={pct(neg / r.total)} />
-            <Stat label="Xử lý không cần LLM" value={pct(noLlm / r.total)} sub="trả lời mẫu + chuyển nhân viên" />
+            <Stat label={t("Câu hỏi của khách")} value={num(r.total)} />
+            <Stat label={t("Bot chưa trả lời được")} value={num(r.unansweredCount)} sub={pct(r.unansweredCount / r.total)} />
+            <Stat label={t("Cảm xúc tiêu cực")} value={num(neg)} sub={pct(neg / r.total)} />
+            <Stat label={t("Xử lý không cần LLM")} value={pct(noLlm / r.total)} sub={t("trả lời mẫu + chuyển nhân viên")} />
           </div>
 
           <div className="mt-4">
@@ -46,39 +48,39 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <Card title="Chủ đề được hỏi nhiều nhất" right={<span className="text-[12px] text-[var(--fg-muted)]">ghi chú: chưa trả lời / tiêu cực</span>}>
+            <Card title={t("Chủ đề được hỏi nhiều nhất")} right={<span className="text-[12px] text-[var(--fg-muted)]">{t("ghi chú: chưa trả lời / tiêu cực")}</span>}>
               <BarList data={r.topics.map((t) => ({ label: t.topic, value: t.count, note: `${t.unanswered} / ${t.negative}` }))} />
             </Card>
-            <Card title="Ý định của khách">
+            <Card title={t("Ý định của khách")}>
               <BarList color={S2} data={r.byLabel.map((l) => ({ label: l.text, value: l.count }))} />
             </Card>
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
-            <Card title="Câu hỏi theo ngày" className="lg:col-span-2">
+            <Card title={t("Câu hỏi theo ngày")} className="lg:col-span-2">
               <DailyBars
                 stacked
                 data={r.daily.map((d) => ({ day: d.day, answered: d.total - d.unanswered, unanswered: d.unanswered }))}
                 series={[
-                  { key: "answered", name: "Bot trả lời được", color: S1 },
-                  { key: "unanswered", name: "Chưa trả lời được", color: S2 },
+                  { key: "answered", name: t("Bot trả lời được"), color: S1 },
+                  { key: "unanswered", name: t("Chưa trả lời được"), color: S2 },
                 ]}
               />
             </Card>
             <div className="space-y-4">
-              <Card title="Cảm xúc">
-                <BarList color={S4} data={r.sentiment.map((x) => ({ label: SENTIMENT[x.sentiment] ?? x.sentiment, value: x.count }))} />
+              <Card title={t("Cảm xúc")}>
+                <BarList color={S4} data={r.sentiment.map((x) => ({ label: SENTIMENT[x.sentiment] ? t(SENTIMENT[x.sentiment]) : x.sentiment, value: x.count }))} />
               </Card>
-              <Card title="Cách xử lý">
+              <Card title={t("Cách xử lý")}>
                 <BarList color={S3} data={r.handledBy.map((h) => ({ label: h.text, value: h.count }))} />
               </Card>
             </div>
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
-            <Card title="Câu bot chưa trả lời được — nên bổ sung vào Kiến thức cửa hàng" className="lg:col-span-2" right={<Link href="/admin/settings#knowledge" className="text-[13px] underline">Sửa kiến thức</Link>}>
+            <Card title={t("Câu bot chưa trả lời được — nên bổ sung vào Kiến thức cửa hàng")} className="lg:col-span-2" right={<Link href="/admin/settings#knowledge" className="text-[13px] underline">{t("Sửa kiến thức")}</Link>}>
               {r.unanswered.length === 0 ? (
-                <Empty>Bot đã trả lời được mọi câu hỏi.</Empty>
+                <Empty>{t("Bot đã trả lời được mọi câu hỏi.")}</Empty>
               ) : (
                 <ul className="divide-y divide-[var(--border)] text-[14px]">
                   {r.unanswered.map((u, i) => (
@@ -97,7 +99,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
                 </ul>
               )}
             </Card>
-            <Card title="Từ khoá nhu cầu nổi bật">
+            <Card title={t("Từ khoá nhu cầu nổi bật")}>
               <ul className="flex flex-wrap gap-1.5">
                 {r.keywords.map((k) => (
                   <li key={k.word} className="rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-[13px]">

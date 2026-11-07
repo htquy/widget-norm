@@ -1,4 +1,5 @@
 "use client";
+import { useT } from "@/lib/i18n/client";
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -12,6 +13,7 @@ import type {
 import { btnPrimary, fieldCls } from "./ui";
 
 export function CheckoutPanel({ prices }: { prices: HubPrice[] }) {
+  const t = useT();
   const [state, action, pending] = useActionState(
     createPaymentAction,
     undefined,
@@ -38,7 +40,7 @@ export function CheckoutPanel({ prices }: { prices: HubPrice[] }) {
         }
         if (result.status && result.status !== "PENDING") return;
       } catch {
-        if (!stopped) setError("Mất kết nối, đang thử kiểm tra lại.");
+        if (!stopped) setError(t("Mất kết nối, đang thử kiểm tra lại."));
       }
       if (!stopped) timer = setTimeout(check, 4000);
     };
@@ -52,7 +54,7 @@ export function CheckoutPanel({ prices }: { prices: HubPrice[] }) {
     <div className="space-y-4">
       <form action={action} className="space-y-3">
         <label className="block text-sm font-medium" htmlFor="hub-price">
-          Gói thanh toán
+          {t("Gói thanh toán")}
         </label>
         <select
           id="hub-price"
@@ -72,10 +74,10 @@ export function CheckoutPanel({ prices }: { prices: HubPrice[] }) {
           disabled={pending || !prices.length}
           className={`${btnPrimary} w-full`}
         >
-          {pending ? "Đang tạo mã thanh toán…" : "Tạo mã QR thanh toán"}
+          {pending ? t("Đang tạo mã thanh toán…") : t("Tạo mã QR thanh toán")}
         </button>
         {!prices.length && (
-          <p className="text-sm text-amber-900">Chưa có gói đang mở bán.</p>
+          <p className="text-sm text-amber-900">{t("Chưa có gói đang mở bán.")}</p>
         )}
         {state?.error && (
           <p role="alert" className="text-sm text-rose-700">
@@ -101,25 +103,24 @@ export function CheckoutPanel({ prices }: { prices: HubPrice[] }) {
               />
               <dl className="space-y-2 text-sm">
                 <div>
-                  <dt className="text-zinc-500">Ngân hàng / số tài khoản</dt>
+                  <dt className="text-zinc-500">{t("Ngân hàng / số tài khoản")}</dt>
                   <dd className="break-all font-medium">
                     {state.payment.bankName} · {state.payment.accountNumber}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-zinc-500">Chủ tài khoản</dt>
+                  <dt className="text-zinc-500">{t("Chủ tài khoản")}</dt>
                   <dd>{state.payment.accountHolder}</dd>
                 </div>
                 <div>
-                  <dt className="text-zinc-500">Nội dung chuyển khoản</dt>
+                  <dt className="text-zinc-500">{t("Nội dung chuyển khoản")}</dt>
                   <dd className="break-all font-mono font-semibold">
                     {state.payment.description}
                   </dd>
                 </div>
               </dl>
               <p className="mt-3 text-xs text-zinc-500">
-                Hệ thống tự kiểm tra thanh toán và kích hoạt bot khi trung tâm
-                xác nhận. Giữ đúng số tiền và nội dung chuyển khoản.
+                {t("Hệ thống tự kiểm tra thanh toán và kích hoạt bot khi trung tâm xác nhận. Giữ đúng số tiền và nội dung chuyển khoản.")}
               </p>
             </>
           )}
@@ -129,12 +130,12 @@ export function CheckoutPanel({ prices }: { prices: HubPrice[] }) {
           >
             {
               {
-                PENDING: "Đang chờ thanh toán",
-                PAID: "Đã thanh toán và kích hoạt chatbot",
-                EXPIRED: "Đơn đã hết hạn. Tạo mã mới để thanh toán.",
-                CANCELED: "Đơn đã bị hủy",
-                FAILED: "Thanh toán chưa thành công",
-                REFUNDED: "Đơn đã hoàn tiền",
+                PENDING: t("Đang chờ thanh toán"),
+                PAID: t("Đã thanh toán và kích hoạt chatbot"),
+                EXPIRED: t("Đơn đã hết hạn. Tạo mã mới để thanh toán."),
+                CANCELED: t("Đơn đã bị hủy"),
+                FAILED: t("Thanh toán chưa thành công"),
+                REFUNDED: t("Đơn đã hoàn tiền"),
               }[status]
             }
           </p>

@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Widget Norm
 
-Kế hoạch, kiến trúc hub đa chatbot, lộ trình bot tương lai: **[docs/PLAN.md](docs/PLAN.md)** — làm xong việc nào thì tick ở mục 3 và ghi một dòng vào mục 6. Kế hoạch LLM/jev: **[docs/PLAN-LLM.md](docs/PLAN-LLM.md)**. Trước khi thêm bot/bảng/trang marketing, đọc `.claude/skills/hub-architecture/SKILL.md` và `hub-landing-design/SKILL.md`.
+**Bắt đầu từ [docs/DEVELOPER-GUIDE.md](docs/DEVELOPER-GUIDE.md)** (mục tiêu, kiến trúc, model AI/3D, setup, i18n, quy tắc cho agent ở mục 12). Kế hoạch, kiến trúc hub đa chatbot, lộ trình bot tương lai: **[docs/PLAN.md](docs/PLAN.md)** — làm xong việc nào thì tick ở mục 3 và ghi một dòng vào mục 6. Kế hoạch LLM/jev: **[docs/PLAN-LLM.md](docs/PLAN-LLM.md)**. Nội thất 3D/AR: **[docs/PLAN-FURNITURE-3D.md](docs/PLAN-FURNITURE-3D.md)**. Trước khi thêm bot/bảng/trang marketing, đọc `.claude/skills/hub-architecture/SKILL.md` và `hub-landing-design/SKILL.md`.
 
 ```bash
 npm run typecheck && npm test

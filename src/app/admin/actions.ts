@@ -11,6 +11,9 @@ import {
 } from "@/domain/booking";
 import { DomainError } from "@/domain/errors";
 import { LEAD_STATUSES } from "@/domain/lead";
+import { CHAT_LANGS, defaultTexts, isChatLang, themeTexts } from "@/domain/chat-text";
+import { getLocale } from "@/lib/i18n/server";
+import { pricingFromForm } from "@/bots/store/estimate";
 import { MAX_DESCRIPTION_LENGTH } from "@/bots/store/product";
 import { MAX_KNOWLEDGE_LENGTH } from "@/domain/tenant";
 import { sanitizeTheme } from "@/domain/theme";
@@ -105,6 +108,7 @@ export async function signupAction(
         existing.accountId,
         kind,
         String(f.shopName ?? ""),
+        { language: await newBotLanguage(f.language) },
       );
       s = { ...existing, tenantId: bot.id };
     } else {
@@ -135,6 +139,33 @@ export async function switchBotAction(form: FormData) {
   redirect("/admin");
 }
 
+/**
+ * Quản lý ngôn ngữ tập trung: đổi ngôn ngữ trả lời của MỘT chatbot trong tài khoản (trang /admin/languages).
+ * Tick "đặt lại" thì lời chào, nút gợi ý và chữ giao diện widget lấy mặc định của ngôn ngữ mới.
+ */
+export async function setBotLanguageAction(form: FormData) {
+  const s = await requireAccount();
+  const id = z.string().uuid().parse(form.get("id"));
+  const language = z.enum(CHAT_LANGS).parse(form.get("language"));
+  const c = await app();
+  const bot = (await c.tenants.listByAccount(s.accountId)).find((b) => b.id === id);
+  if (!bot) throw new DomainError("FORBIDDEN", "Không có quyền với chatbot này");
+  const reset = form.get("resetTexts") === "on";
+  const texts = defaultTexts(language, bot.settings.shopName);
+  await c.tenants.updateSettings(id, {
+    ...bot.settings,
+    language,
+    ...(reset ? { greeting: texts.greeting, quickReplies: texts.quickReplies, theme: { ...bot.settings.theme, ...themeTexts(language, bot.settings.shopName) } } : {}),
+  });
+  revalidatePath("/admin", "layout");
+}
+
+/** Ngôn ngữ cho bot mới: ô chọn trong form, không có thì theo ngôn ngữ giao diện đang dùng */
+async function newBotLanguage(v: FormDataEntryValue | undefined | null) {
+  const picked = typeof v === "string" ? v : "";
+  return isChatLang(picked) ? picked : (await getLocale());
+}
+
 export async function createBotAction(
   _: ActionState,
   form: FormData,
@@ -152,7 +183,7 @@ export async function createBotAction(
       throw new DomainError("BAD_KIND", "Loại chatbot không hợp lệ");
     const bot = await (
       await app()
-    ).tenants.createBot(s.accountId, kind, String(form.get("shopName") ?? ""));
+    ).tenants.createBot(s.accountId, kind, String(form.get("shopName") ?? ""), { language: await newBotLanguage(form.get("language")) });
     id = bot.id;
     await createSession({ ...s, tenantId: id });
   } catch (e) {
@@ -332,6 +363,7 @@ export async function saveProductAction(
         .filter(Boolean),
       inStock: form.get("inStock") === "on",
       active: form.get("active") === "on",
+      pricing: pricingFromForm(form),
     };
     if (id) await c.catalog.update(s.tenantId, id, data);
     else await c.catalog.create({ ...data, tenantId: s.tenantId });
@@ -438,15 +470,22 @@ export async function saveSettingsAction(
     }
     const int = (k: string, min: number, max: number) =>
       z.coerce.number().int().min(min).max(max).parse(f[k]);
+    const language = z.enum(CHAT_LANGS).parse(f.language ?? tenant.settings.language ?? "vi");
+    // Đổi ngôn ngữ (hoặc tick "đặt lại") → lời chào + câu gợi ý lấy mặc định của ngôn ngữ đó
+    const resetTexts = f.resetTexts === "on";
+    const shopNameInput = z.string().trim().min(1).max(80).parse(f.shopName);
+    const langDefaults = defaultTexts(language, shopNameInput);
     await c.tenants.updateSettings(s.tenantId, {
       ...tenant.settings,
-      shopName: z.string().trim().min(1).max(80).parse(f.shopName),
+      language,
+      theme: resetTexts ? { ...tenant.settings.theme, ...themeTexts(language, shopNameInput) } : tenant.settings.theme,
+      shopName: shopNameInput,
       industry: z
         .string()
         .trim()
         .max(120)
         .parse(f.industry ?? ""),
-      greeting: z.string().max(500).parse(f.greeting),
+      greeting: resetTexts ? langDefaults.greeting : z.string().max(500).parse(f.greeting),
       phone: z.string().max(30).parse(f.phone),
       email: z
         .string()
@@ -461,11 +500,13 @@ export async function saveSettingsAction(
           `Kiến thức cửa hàng tối đa ${MAX_KNOWLEDGE_LENGTH} ký tự`,
         )
         .parse(f.knowledgeBase ?? ""),
-      quickReplies: String(f.quickReplies ?? "")
-        .split("\n")
-        .map((q) => q.trim().slice(0, 40))
-        .filter(Boolean)
-        .slice(0, 6),
+      quickReplies: resetTexts
+        ? langDefaults.quickReplies
+        : String(f.quickReplies ?? "")
+            .split("\n")
+            .map((q) => q.trim().slice(0, 40))
+            .filter(Boolean)
+            .slice(0, 6),
       allowedOrigins,
       webhookUrl: webhook,
       hours,

@@ -2,13 +2,13 @@ import "server-only";
 import { z } from "zod";
 import { BOT_PRICING } from "@/domain/bot-pricing";
 import { DomainError } from "@/domain/errors";
-import type { BotKind } from "@/domain/tenant";
+import { BOT_KINDS, type BotKind } from "@/domain/tenant";
 import { hubAccessToken, hubFetch, seal, unseal } from "./client";
 import { activateLicense } from "./billing";
 import type { HubPrice, HubPayment, PaymentStatus } from "./payment-types";
 
 const appSlug = (kind: BotKind) =>
-  process.env[kind === "tile" ? "HUB_APP_TILE" : "HUB_APP_AVI"] ||
+  process.env[BOT_PRICING[kind].hubEnv] ||
   BOT_PRICING[kind].hubSlug;
 const catalog = z.object({
   data: z.object({
@@ -130,7 +130,7 @@ export async function pollHubPayment(
       orderId: z.string(),
       accountId: z.literal(accountId),
       tenantId: z.literal(tenantId),
-      kind: z.enum(["store", "tile"]),
+      kind: z.enum(BOT_KINDS),
     })
     .parse(await unseal(ticket));
   const token = await hubAccessToken(accountId);

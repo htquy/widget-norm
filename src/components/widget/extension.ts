@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 import type { PublicConfig } from "./api";
+import type { ChatLang } from "@/domain/chat-text";
+import type { Tr } from "./i18n";
 
 /** Những gì module bot được dùng từ khung chat chung */
 export interface ExtHelpers {
@@ -12,6 +14,9 @@ export interface ExtHelpers {
   send(text: string): void;
   openPanel(name: string, data?: unknown): void;
   closePanel(): void;
+  /** Dịch chữ theo ngôn ngữ chatbot (khoá = câu tiếng Việt gốc) và ngôn ngữ hiện hành */
+  tr: Tr;
+  lang: ChatLang;
   /** Thêm tin nhắn của trợ lý ngay trên máy khách (kèm dữ liệu module, vd báo giá vừa lập) */
   pushLocal(text: string, extras?: Record<string, unknown>): void;
 }

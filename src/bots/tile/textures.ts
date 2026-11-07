@@ -65,3 +65,40 @@ export function pattern(base: string, ink: string, w = 400, h = 400): string {
     `<rect width="${w}" height="${h}" fill="${base}"/><g fill="none" stroke="${ink}" stroke-width="10"><circle cx="0" cy="0" r="200"/><circle cx="400" cy="0" r="200"/><circle cx="0" cy="400" r="200"/><circle cx="400" cy="400" r="200"/><circle cx="200" cy="200" r="90"/></g><rect x="185" y="185" width="30" height="30" fill="${ink}" transform="rotate(45 200 200)"/>`,
   );
 }
+/** Ngói (1 viên, phần lộ ra): nền đất nung/màu, sóng dọc + mép dưới tối — shader thêm đổ bóng chồng mí. */
+export function roofTile(base: string, dark: string, waves = 2, w = 400, h = 460): string {
+  let ridges = "";
+  for (let i = 0; i < waves; i++) {
+    const x0 = (i * w) / waves;
+    ridges += `<rect x="${x0}" y="0" width="${w / waves}" height="${h}" fill="url(#g)"/>`;
+  }
+  return wrap(
+    w,
+    h,
+    `<defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="${dark}" stop-opacity="0.45"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.12"/><stop offset="1" stop-color="${dark}" stop-opacity="0.45"/></linearGradient>` +
+      `<filter id="n"><feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="2" seed="4"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.16 0"/></filter></defs>` +
+      `<rect width="${w}" height="${h}" fill="${base}"/>${ridges}<rect width="${w}" height="${h}" filter="url(#n)"/>` +
+      `<rect y="${h - 14}" width="${w}" height="14" fill="${dark}" fill-opacity="0.5"/>`,
+  );
+}
+
+/** Gạch thẻ (subway) men bóng: viền vát sáng + loang men nhẹ. */
+export function subway(base: string, w = 600, h = 300): string {
+  return wrap(
+    w,
+    h,
+    `<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="0.15" stop-color="#fff" stop-opacity="0"/><stop offset="0.85" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient></defs>` +
+      `<rect width="${w}" height="${h}" fill="${base}"/><rect width="${w}" height="${h}" fill="url(#s)"/>`,
+  );
+}
+
+/** Đá granite / đá tự nhiên nhám: hạt li ti nhiều sắc độ. */
+export function granite(seed: number, base: string, specks: string[], w = 512, h = 512): string {
+  let s = seed >>> 0;
+  const r = () => ((s = (s * 1664525 + 1013904223) >>> 0), s / 2 ** 32);
+  let dots = "";
+  for (let i = 0; i < 1400; i++) {
+    dots += `<circle cx="${(r() * w).toFixed(1)}" cy="${(r() * h).toFixed(1)}" r="${(0.6 + r() * 2.2).toFixed(1)}" fill="${specks[Math.floor(r() * specks.length)]}" fill-opacity="${(0.4 + r() * 0.5).toFixed(2)}"/>`;
+  }
+  return wrap(w, h, `<rect width="${w}" height="${h}" fill="${base}"/>${dots}`);
+}

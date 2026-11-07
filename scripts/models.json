@@ -38,6 +38,31 @@
         "onnx/model_quantized.onnx",
         "onnx/model_fp16.onnx"
       ]
+    },
+    {
+      "id": "Xenova/clip-vit-base-patch32",
+      "role": "Bot nội thất: nhận diện loại phòng + phong cách từ ảnh (zero-shot). Trình duyệt chỉ nạp vision model; nhãn văn bản đã tính sẵn ở src/bots/furniture/vision/labels.json (scripts/build-clip-labels.ts dùng text model)",
+      "license": "mit",
+      "commercial": true,
+      "files": [
+        "config.json",
+        "preprocessor_config.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "onnx/vision_model_quantized.onnx",
+        "onnx/text_model_quantized.onnx"
+      ]
+    },
+    {
+      "id": "Xenova/detr-resnet-50",
+      "role": "Bot nội thất: nhận diện đồ đã có trong ảnh phòng (sofa, ghế, giường, bàn ăn, TV, cây...) để gợi ý món còn thiếu",
+      "license": "apache-2.0",
+      "commercial": true,
+      "files": [
+        "config.json",
+        "preprocessor_config.json",
+        "onnx/model_quantized.onnx"
+      ]
     }
   ]
 }
