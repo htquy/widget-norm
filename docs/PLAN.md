@@ -118,7 +118,7 @@ Trạng thái: **mã đã xong và qua typecheck + 180 test + `next build --webp
 - [x] **Admin đồng bộ website** (tối, tím thương hiệu, chung ThemeProvider) — xem nhật ký.
 
 Việc tiếp theo (theo thứ tự nên làm)
-- [ ] **Commit** (chia 3–4 commit: i18n · admin/theme · nội thất 3D · khung chat) và quyết định cách giữ `assets/demo-furniture` (~26 MB: commit thẳng, Git LFS hay chỉ để script tải lúc cài).
+- [x] **Commit** `a1d4749` trên nhánh `feat/furniture-3d-i18n-expand-chat` (một commit gộp). `assets/demo-furniture` (~26 MB) **không** commit (đã vào `.gitignore`) — chạy `node scripts/fetch-demo-furniture.mjs` sau khi clone; chưa có file thì seed dùng khối hộp. Còn lại: gộp vào master/mở PR, và quyết định có cần Git LFS cho môi trường triển khai không (Vercel cần tải script lúc build hoặc dùng R2).
 - [ ] **Kiểm thử dev server**: sau khi chạy `next build`, `next dev` mới khởi động lại từng bị vòng lặp gọi `/config` liên tục (widget kẹt "Đang kết nối trợ lý"); production (`next start`) chạy đúng. Chưa rõ nguyên nhân (nghi HMR/websocket) — đừng chạy build khi dev đang mở, xoá `.next` nếu gặp lại; cần điều tra nếu còn.
 - [ ] **R2**: token hiện chỉ đọc (ghi trả Access Denied) → cấp Object Read & Write rồi chạy lại `npm run db:seed` để đẩy ảnh/mô hình demo lên R2; xác minh CORS cho `.glb` khi nhúng trên web khác.
 - [ ] **Studio**: thay 3 phòng mẫu vẽ tay bằng ảnh phòng thật (kèm 4 góc sàn); khớp ánh sáng tem 3D với ảnh phòng; món nhiều vật liệu (mây + nệm) cho chọn vật liệu nhuộm; bố cục 2 cột cho Visualizer thử gạch khi phóng to.
