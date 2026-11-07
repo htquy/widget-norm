@@ -3,7 +3,7 @@ import type { DB } from "@/infrastructure/db/client";
 import { products } from "@/infrastructure/db/schema";
 import type { Product } from "./product";
 
-export type NewProduct = Omit<Product, "id" | "createdAt">;
+export type NewProduct = Omit<Product, "id" | "createdAt" | "pricing"> & { pricing?: Product["pricing"] };
 
 export interface ProductRepository {
   list(tenantId: string, filter?: { activeOnly?: boolean; search?: string; category?: string }): Promise<Product[]>;

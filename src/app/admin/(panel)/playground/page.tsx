@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n/server";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -13,6 +14,7 @@ import { ChatWidget } from "@/components/widget/ChatWidget";
 import { PageHeader } from "@/components/admin/ui";
 
 export default async function PlaygroundPage() {
+  const { t } = await getT();
   const s = await requireSession(),
     c = await app(),
     tenant = (await c.tenants.byId(s.tenantId))!,
@@ -20,8 +22,8 @@ export default async function PlaygroundPage() {
   return (
     <>
       <PageHeader
-        title="Thử một cuộc trò chuyện"
-        subtitle="Chatbot thật, dùng chính dữ liệu cửa hàng của bạn. Các cuộc hội thoại thử cũng được lưu trong workspace."
+        title={t("Thử một cuộc trò chuyện")}
+        subtitle={t("Chatbot thật, dùng chính dữ liệu cửa hàng của bạn. Các cuộc hội thoại thử cũng được lưu trong workspace.")}
       />
       <div className="grid items-start gap-8 xl:grid-cols-[1fr_430px]">
         <div className="order-2 xl:order-1">
@@ -31,14 +33,12 @@ export default async function PlaygroundPage() {
               {meta.shortName}
             </span>
             <h2 className="mt-5 text-3xl font-semibold tracking-tight">
-              Khách hỏi thế này,
+              {t("Khách hỏi thế này,")}
               <br />
-              bot sẽ trả lời ra sao?
+              {t("bot sẽ trả lời ra sao?")}
             </h2>
             <p className="mt-4 max-w-lg text-sm leading-relaxed text-zinc-600">
-              Thử các tình huống thực tế: tìm sản phẩm theo ngân sách, hỏi chính
-              sách đổi trả, đặt lịch hoặc yêu cầu gặp nhân viên. Chưa có dữ
-              liệu? Thêm trước để bot có cơ sở trả lời.
+              {t("Thử các tình huống thực tế: tìm sản phẩm theo ngân sách, hỏi chính sách đổi trả, đặt lịch hoặc yêu cầu gặp nhân viên. Chưa có dữ liệu? Thêm trước để bot có cơ sở trả lời.")}
             </p>
             <div className="mt-6 space-y-3">
               {meta.sampleQuestions.map((q) => (
@@ -56,17 +56,17 @@ export default async function PlaygroundPage() {
               {
                 Icon: BookOpen,
                 href: "/admin/settings",
-                title: "Bổ sung kiến thức & chính sách",
+                title: t("Bổ sung kiến thức & chính sách"),
               },
               {
                 Icon: Palette,
                 href: "/admin/widget",
-                title: "Chỉnh giao diện theo thương hiệu",
+                title: t("Chỉnh giao diện theo thương hiệu"),
               },
               {
                 Icon: Globe2,
                 href: "/admin/billing",
-                title: "Xác minh domain & đưa lên website",
+                title: t("Xác minh domain & đưa lên website"),
               },
             ].map(({ Icon, href, title }) => (
               <Link
@@ -83,8 +83,8 @@ export default async function PlaygroundPage() {
         </div>
         <div className="order-1 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-lift xl:order-2">
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 text-xs text-zinc-500">
-            <span>Xem từ góc nhìn của khách</span>
-            <span className="text-emerald-800">Phiên thử trực tiếp</span>
+            <span>{t("Xem từ góc nhìn của khách")}</span>
+            <span className="text-emerald-800">{t("Phiên thử trực tiếp")}</span>
           </div>
           <div className="h-[650px] max-h-[80dvh]">
             <ChatWidget

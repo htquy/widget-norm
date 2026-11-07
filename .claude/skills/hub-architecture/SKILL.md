@@ -42,3 +42,24 @@ Chat engine (`src/application/use-cases/chat.ts`) giữ phần chung: tầng quy
 npm run typecheck && npm test
 ```
 Test tích hợp chạy trên PGlite với đủ các schema — thêm test cho module mới vào `src/integration.test.ts` hoặc file test của module.
+
+## 4. Cổng chất lượng bot ngách (bắt buộc trước khi `status: "live"`)
+
+Chi tiết và lý do ở `docs/PLAN.md` mục "Cổng chất lượng bot ngách". Tóm tắt — một bot mới phải có:
+1. Ngách hẹp, khách và câu hỏi tiền bạc cụ thể (không "đào tạo nói chung").
+2. Công cụ chữ ký tương tác trong widget (`widget/extension.tsx`: `renderPanel` + `quickActions`).
+3. ≥ 2 phép tính tất định ở domain, có test; tool trả `notes` khi có giả định.
+4. Thẻ/kết quả riêng trong khung chat (`renderCards`/`renderExtras`).
+5. Trang giới thiệu phong cách riêng (`src/components/site/landings/<Kind>Landing.tsx`, CSS `.<kind>-site`).
+6. Lead mang dữ liệu ngành trong `leads.meta`.
+7. Demo dùng được công cụ chữ ký ngay trên trang giới thiệu.
+8. Model trình duyệt: giấy phép thương mại, khai báo trong `scripts/models.json`.
+
+Mã xử lý ảnh dùng chung giữa các bot (SlimSAM, homography, tách vùng sàn) nằm ở `src/bots/tile/vision/` — bot khác import trực tiếp, không sao chép.
+
+## 5. Hai ngôn ngữ (vi/en)
+
+- Giao diện (website, admin): `import { getT } from "@/lib/i18n/server"` (server) hoặc `useT()` từ `@/lib/i18n/client` (client); viết `t("Câu tiếng Việt")` và thêm bản Anh vào `src/lib/i18n/messages/*.ts`. Component dùng chung cả server lẫn client thì phải là client component (không import `server.ts`). Hằng số cấp module không được gọi `t()` — giữ chuỗi gốc rồi dịch ở chỗ hiển thị.
+- **Thêm ngôn ngữ mới**: khai báo ở `src/lib/i18n/languages.ts` (đăng ký duy nhất) rồi làm theo 4 bước trong chú thích đầu file đó: từ điển giao diện `messages/<mã>/`, widget `widget/<mã>.ts`, gói chatbot `domain/chat-packs/<mã>.ts`. Trang `/admin/languages` cho tải file JSON các câu chưa dịch. Nội dung giới thiệu bot (`BotMeta`) dịch qua `localizeMeta(meta, t)` — thêm chuỗi mới vào `messages/en/bot-pages.ts`.
+- Widget (kể cả panel của bot như studio nội thất): dùng `useTr()` hoặc `h.tr` (ExtHelpers); khung widget có nút phóng to — panel toàn khung nên chèn `<ExpandButton />` ở header và dùng container query (`@3xl:`) cho bố cục rộng.
+- Ngôn ngữ chatbot là cài đặt riêng của bot (`settings.language`), khác ngôn ngữ giao diện. Chữ do engine sinh ra nằm ở `src/domain/chat-text.ts`; chữ trong widget ở `src/components/widget/i18n.tsx`; prompt riêng của module bot hiện viết bằng tiếng Việt và được bọc bởi chỉ thị ngôn ngữ ở đầu/cuối prompt — module mới nên giữ câu trả lời cố định (tool trả số liệu/nhãn trung tính) để LLM dịch được.

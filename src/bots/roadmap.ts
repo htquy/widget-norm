@@ -27,13 +27,6 @@ export const PLANNED_BOTS: PlannedBot[] = [
     derivedFrom: "store",
   },
   {
-    id: "education",
-    name: "Tư vấn tuyển sinh & khoá học",
-    tagline: "Tư vấn lộ trình theo trình độ, học phí, lịch khai giảng; hẹn học thử",
-    schemaIdeas: ["courses (lộ trình, học phí)", "classes (lịch khai giảng, sĩ số)", "placements (kết quả test đầu vào)"],
-    reuses: ["jev", "đặt lịch học thử", "lead CRM", "báo cáo nhu cầu"],
-  },
-  {
     id: "realestate",
     name: "Tư vấn bất động sản",
     tagline: "Lọc căn theo ngân sách, hướng, tiện ích; hẹn xem nhà; tính khoản vay ước tính",

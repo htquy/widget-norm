@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useChatLang, useTr, widgetPhrases } from "./i18n";
 import { rememberContact, type ProductCard, type ServiceItem, type Slot, type WidgetApi } from "./api";
 
-const fmtVnd = (n: number) => (n > 0 ? `${n.toLocaleString("vi-VN")} ₫` : "Miễn phí / liên hệ");
+const fmtVnd = (n: number, free = "Miễn phí / liên hệ") => (n > 0 ? `${n.toLocaleString("vi-VN")} ₫` : free);
 const WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 export const inputCls =
@@ -12,11 +13,14 @@ export const primaryBtn =
   "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--w-r-control)] bg-[var(--w-primary)] px-4 text-[15px] font-semibold text-[var(--w-on-primary)] transition hover:brightness-110 active:scale-[0.99] disabled:opacity-50";
 
 export function PanelShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const tr = useTr();
+  const lang = useChatLang();
+  const wp = widgetPhrases(lang);
   return (
     <div className="flex max-h-full min-h-0 flex-col">
       <div className="flex items-center justify-between border-b border-[var(--w-border)] px-4 py-3">
         <h2 className="text-[16px] font-semibold text-[var(--w-fg)]">{title}</h2>
-        <button type="button" onClick={onClose} aria-label="Đóng" className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--w-muted)] hover:bg-[var(--w-surface-2)]">
+        <button type="button" onClick={onClose} aria-label={tr("Đóng")} className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--w-muted)] hover:bg-[var(--w-surface-2)]">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
@@ -62,6 +66,9 @@ function guessService(services: ServiceItem[], hint?: string): string | undefine
 }
 
 export function BookingPanel(props: { api: WidgetApi; conversationId: string | null; initialServiceId?: string; hint?: string; onClose: () => void; onDone: (summary: string) => void }) {
+  const tr = useTr();
+  const lang = useChatLang();
+  const wp = widgetPhrases(lang);
   const { api } = props;
   const [services, setServices] = useState<ServiceItem[] | null>(null);
   const [serviceId, setServiceId] = useState(props.initialServiceId ?? "");
@@ -120,7 +127,7 @@ export function BookingPanel(props: { api: WidgetApi; conversationId: string | n
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!service || !date || !time) return setError("Chọn dịch vụ, ngày và giờ");
+    if (!service || !date || !time) return setError(tr("Chọn dịch vụ, ngày và giờ"));
     setBusy(true);
     setError("");
     try {
@@ -128,10 +135,10 @@ export function BookingPanel(props: { api: WidgetApi; conversationId: string | n
       rememberContact({ name, phone });
       const d = new Date(`${date}T00:00:00Z`);
       props.onDone(
-        `Đã ${r.booking.status === "confirmed" ? "xác nhận" : "ghi nhận"} lịch ${service.name} lúc ${time} ngày ${d.getUTCDate()}/${d.getUTCMonth() + 1}. ${r.booking.status === "confirmed" ? "Hẹn gặp bạn nhé!" : "Shop sẽ gọi xác nhận sớm."}`,
+        wp.booked(r.booking.status === "confirmed", service.name, time, d.getUTCDate(), d.getUTCMonth() + 1),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Có lỗi xảy ra");
+      setError(err instanceof Error ? err.message : tr("Có lỗi xảy ra"));
       if (err instanceof Error && /giờ/.test(err.message)) api.slots(serviceId, date).then((r) => setSlots(r.slots));
     } finally {
       setBusy(false);
@@ -139,10 +146,10 @@ export function BookingPanel(props: { api: WidgetApi; conversationId: string | n
   }
 
   return (
-    <PanelShell title="Đặt lịch hẹn" onClose={props.onClose}>
+    <PanelShell title={tr("Đặt lịch hẹn")} onClose={props.onClose}>
       <form onSubmit={submit} className="space-y-4">
         <fieldset>
-          <legend className="mb-2 text-[13px] font-medium text-[var(--w-fg)]">1. Dịch vụ</legend>
+          <legend className="mb-2 text-[13px] font-medium text-[var(--w-fg)]">{tr("1. Dịch vụ")}</legend>
           {!services ? (
             <p className="text-[14px] text-[var(--w-muted)]">Đang tải…</p>
           ) : services.length === 0 ? (
@@ -158,7 +165,7 @@ export function BookingPanel(props: { api: WidgetApi; conversationId: string | n
                   <span className="min-w-0 flex-1">
                     <span className="block text-[14px] font-semibold text-[var(--w-fg)]">{s.name}</span>
                     <span className="block text-[13px] text-[var(--w-muted)]">
-                      {s.durationMin} phút · {fmtVnd(s.price)}
+                      {s.durationMin} {tr("phút")} · {fmtVnd(s.price, tr("Miễn phí / liên hệ"))}
                     </span>
                   </span>
                 </label>
@@ -169,8 +176,8 @@ export function BookingPanel(props: { api: WidgetApi; conversationId: string | n
 
         {serviceId && (
           <fieldset>
-            <legend className="mb-2 text-[13px] font-medium text-[var(--w-fg)]">2. Ngày</legend>
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="radiogroup" aria-label="Chọn ngày">
+            <legend className="mb-2 text-[13px] font-medium text-[var(--w-fg)]">{tr("2. Ngày")}</legend>
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="radiogroup" aria-label={tr("Chọn ngày")}>
               {days.length === 0 && <p className="text-[14px] text-[var(--w-muted)]">Đang tải…</p>}
               {days.map((d) => {
                 const dt = new Date(`${d.date}T00:00:00Z`);
@@ -197,13 +204,13 @@ export function BookingPanel(props: { api: WidgetApi; conversationId: string | n
 
         {date && (
           <fieldset>
-            <legend className="mb-2 text-[13px] font-medium text-[var(--w-fg)]">3. Giờ</legend>
+            <legend className="mb-2 text-[13px] font-medium text-[var(--w-fg)]">{tr("3. Giờ")}</legend>
             {!slots ? (
               <p className="text-[14px] text-[var(--w-muted)]">Đang tải…</p>
             ) : slots.length === 0 ? (
               <p className="text-[14px] text-[var(--w-muted)]">Ngày này đã kín lịch, bạn chọn ngày khác nhé.</p>
             ) : (
-              <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Chọn giờ">
+              <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label={tr("Chọn giờ")}>
                 {slots.map((s) => (
                   <button
                     key={s.time}
@@ -223,14 +230,14 @@ export function BookingPanel(props: { api: WidgetApi; conversationId: string | n
 
         {time && (
           <fieldset className="space-y-3">
-            <legend className="mb-2 text-[13px] font-medium text-[var(--w-fg)]">4. Thông tin liên hệ</legend>
-            <Field label="Họ tên">
+            <legend className="mb-2 text-[13px] font-medium text-[var(--w-fg)]">{tr("4. Thông tin liên hệ")}</legend>
+            <Field label={tr("Họ tên")}>
               <input required value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={inputCls} />
             </Field>
-            <Field label="Số điện thoại">
+            <Field label={tr("Số điện thoại")}>
               <input required value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" autoComplete="tel" placeholder="0912 345 678" className={inputCls} />
             </Field>
-            <Field label="Ghi chú (không bắt buộc)">
+            <Field label={tr("Ghi chú (không bắt buộc)")}>
               <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} className={inputCls} />
             </Field>
           </fieldset>
@@ -242,7 +249,7 @@ export function BookingPanel(props: { api: WidgetApi; conversationId: string | n
           </p>
         )}
         <button disabled={busy || !time} className={primaryBtn}>
-          {busy ? "Đang đặt…" : time ? `Xác nhận đặt lúc ${time}` : "Chọn giờ để đặt lịch"}
+          {busy ? tr("Đang đặt…") : time ? wp.confirmAt(time) : tr("Chọn giờ để đặt lịch")}
         </button>
       </form>
     </PanelShell>
@@ -252,6 +259,9 @@ export function BookingPanel(props: { api: WidgetApi; conversationId: string | n
 /* ---------------- Để lại liên hệ / xin gọi lại ---------------- */
 
 export function ContactPanel(props: { mode: "lead" | "callback"; api: WidgetApi; conversationId: string | null; onClose: () => void; onDone: (text: string) => void }) {
+  const tr = useTr();
+  const lang = useChatLang();
+  const wp = widgetPhrases(lang);
   const saved = rememberContact();
   const [name, setName] = useState(saved.name);
   const [phone, setPhone] = useState(saved.phone);
@@ -269,29 +279,29 @@ export function ContactPanel(props: { mode: "lead" | "callback"; api: WidgetApi;
       if (callback && props.conversationId) await props.api.callback({ conversationId: props.conversationId, name, phone, note });
       else await props.api.lead({ conversationId: props.conversationId, name, phone, email, note });
       rememberContact({ name, phone });
-      props.onDone(callback ? "Mình đã chuyển yêu cầu cho nhân viên. Bạn sẽ được gọi lại sớm nhất có thể nhé!" : "Cảm ơn bạn! Nhân viên sẽ liên hệ lại sớm.");
+      props.onDone(callback ? tr("Mình đã chuyển yêu cầu cho nhân viên. Bạn sẽ được gọi lại sớm nhất có thể nhé!") : tr("Cảm ơn bạn! Nhân viên sẽ liên hệ lại sớm."));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Có lỗi xảy ra");
+      setError(err instanceof Error ? err.message : tr("Có lỗi xảy ra"));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <PanelShell title={callback ? "Nhân viên gọi lại cho bạn" : "Để lại thông tin liên hệ"} onClose={props.onClose}>
+    <PanelShell title={callback ? tr("Nhân viên gọi lại cho bạn") : tr("Để lại thông tin liên hệ")} onClose={props.onClose}>
       <form onSubmit={submit} className="space-y-3">
-        <Field label="Họ tên">
+        <Field label={tr("Họ tên")}>
           <input required value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={inputCls} />
         </Field>
-        <Field label="Số điện thoại">
+        <Field label={tr("Số điện thoại")}>
           <input required value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" autoComplete="tel" placeholder="0912 345 678" className={inputCls} />
         </Field>
         {!callback && (
-          <Field label="Email (không bắt buộc)">
+          <Field label={tr("Email (không bắt buộc)")}>
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" className={inputCls} />
           </Field>
         )}
-        <Field label={callback ? "Bạn cần hỗ trợ gì?" : "Nội dung cần tư vấn"}>
+        <Field label={callback ? tr("Bạn cần hỗ trợ gì?") : tr("Nội dung cần tư vấn")}>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={1000} className={inputCls} />
         </Field>
         {error && (
@@ -300,7 +310,7 @@ export function ContactPanel(props: { mode: "lead" | "callback"; api: WidgetApi;
           </p>
         )}
         <button disabled={busy} className={primaryBtn}>
-          {busy ? "Đang gửi…" : callback ? "Yêu cầu gọi lại" : "Gửi thông tin"}
+          {busy ? tr("Đang gửi…") : callback ? tr("Yêu cầu gọi lại") : tr("Gửi thông tin")}
         </button>
         <p className="text-center text-[12px] text-[var(--w-muted)]">Thông tin chỉ dùng để shop liên hệ tư vấn cho bạn.</p>
       </form>
@@ -311,8 +321,11 @@ export function ContactPanel(props: { mode: "lead" | "callback"; api: WidgetApi;
 /* ---------------- Thẻ sản phẩm ---------------- */
 
 export function ProductCards({ products, onAsk, onOpen }: { products: ProductCard[]; onAsk: (p: ProductCard) => void; onOpen: (p: ProductCard) => void }) {
+  const tr = useTr();
+  const lang = useChatLang();
+  const wp = widgetPhrases(lang);
   return (
-    <ul className="-mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-1" aria-label="Sản phẩm gợi ý">
+    <ul className="-mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-1" aria-label={tr("Sản phẩm gợi ý")}>
       {products.map((p) => (
         <li key={p.id} className="flex w-[200px] shrink-0 snap-start flex-col overflow-hidden rounded-[var(--w-r-bubble)] border border-[var(--w-border)] bg-[var(--w-surface)]">
           {p.imageUrl ? (
@@ -320,7 +333,7 @@ export function ProductCards({ products, onAsk, onOpen }: { products: ProductCar
             <img src={p.imageUrl} alt={p.name} loading="lazy" className="aspect-[4/3] w-full object-cover" />
           ) : (
             <div className="flex aspect-[4/3] w-full items-center justify-center bg-[var(--w-surface-2)] text-[13px] font-medium text-[var(--w-muted)]" aria-hidden="true">
-              {p.category || "Sản phẩm"}
+              {p.category || tr("Sản phẩm")}
             </div>
           )}
           <div className="flex flex-1 flex-col p-3">
@@ -329,7 +342,7 @@ export function ProductCards({ products, onAsk, onOpen }: { products: ProductCar
             {!p.inStock && <p className="text-[12px] text-amber-700">Tạm hết hàng</p>}
             <div className="mt-auto flex gap-1.5 pt-2.5">
               <button type="button" onClick={() => onAsk(p)} className="min-h-10 flex-1 rounded-[var(--w-r-control)] border border-[var(--w-border)] text-[13px] font-medium text-[var(--w-fg)] hover:bg-[var(--w-surface-2)]">
-                Hỏi thêm
+                {tr("Hỏi thêm")}
               </button>
               {p.url && (
                 <a

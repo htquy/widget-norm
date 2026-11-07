@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n/server";
 import Link from "next/link";
 import { HANDOFF_REASON_LABELS } from "@/domain/decision";
 import type { HandoffStatus } from "@/domain/conversation";
@@ -13,6 +14,7 @@ const TABS: { key: HandoffStatus | "all"; label: string }[] = [
 ];
 
 export default async function ConversationsPage({ searchParams }: { searchParams: Promise<{ handoff?: string; q?: string; page?: string }> }) {
+  const { t } = await getT();
   const s = await requireSession();
   const sp = await searchParams;
   const handoff = sp.handoff === "open" || sp.handoff === "resolved" ? sp.handoff : undefined;
@@ -27,20 +29,20 @@ export default async function ConversationsPage({ searchParams }: { searchParams
   return (
     <>
       <AutoRefresh seconds={15} />
-      <PageHeader title="Hội thoại" subtitle="Đọc lại cuộc chat, nhận hỗ trợ khách khi bot cần nhân viên" />
+      <PageHeader title={t("Hội thoại")} subtitle={t("Đọc lại cuộc chat, nhận hỗ trợ khách khi bot cần nhân viên")} />
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <nav aria-label="Lọc" className="flex rounded-lg border border-[var(--border)] bg-white p-0.5 text-[13px]">
-          {TABS.map((t) => {
-            const active = (t.key === "all" && !handoff) || t.key === handoff;
+        <nav aria-label={t("Lọc")} className="flex rounded-lg border border-[var(--border)] bg-white p-0.5 text-[13px]">
+          {TABS.map((tab) => {
+            const active = (tab.key === "all" && !handoff) || tab.key === handoff;
             return (
               <Link
-                key={t.key}
-                href={`/admin/conversations${t.key === "all" ? qs({ handoff: undefined, page: undefined }) : qs({ handoff: t.key, page: undefined })}`}
+                key={tab.key}
+                href={`/admin/conversations${tab.key === "all" ? qs({ handoff: undefined, page: undefined }) : qs({ handoff: tab.key, page: undefined })}`}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-9 items-center gap-1.5 rounded-md px-3 ${active ? "bg-[var(--fg)] text-white" : "text-[var(--fg-muted)]"}`}
+                className={`flex min-h-9 items-center gap-1.5 rounded-md px-3 ${active ? "bg-[var(--accent)] text-white" : "text-[var(--fg-muted)]"}`}
               >
-                {t.label}
-                {t.key === "open" && counts.open > 0 && <span className="rounded-full bg-red-600 px-1.5 text-[11.5px] text-white">{counts.open}</span>}
+                {t(tab.label)}
+                {tab.key === "open" && counts.open > 0 && <span className="rounded-full bg-red-600 px-1.5 text-[11.5px] text-white">{counts.open}</span>}
               </Link>
             );
           })}
@@ -48,15 +50,15 @@ export default async function ConversationsPage({ searchParams }: { searchParams
         <form className="flex flex-1 gap-2" role="search">
           {handoff && <input type="hidden" name="handoff" value={handoff} />}
           <label htmlFor="q" className="sr-only">
-            Tìm trong nội dung chat
+            {t("Tìm trong nội dung chat")}
           </label>
-          <input id="q" name="q" defaultValue={sp.q} placeholder="Tìm trong nội dung chat…" className={`${fieldCls} max-w-sm`} />
-          <button className={btnSecondary}>Tìm</button>
+          <input id="q" name="q" defaultValue={sp.q} placeholder={t("Tìm trong nội dung chat…")} className={`${fieldCls} max-w-sm`} />
+          <button className={btnSecondary}>{t("Tìm")}</button>
         </form>
       </div>
 
       {list.length === 0 ? (
-        <Empty>Không có hội thoại nào.</Empty>
+        <Empty>{t("Không có hội thoại nào.")}</Empty>
       ) : (
         <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-xl border border-[var(--border)] bg-white">
           {list.map((r) => (
@@ -64,17 +66,17 @@ export default async function ConversationsPage({ searchParams }: { searchParams
               <Link href={`/admin/conversations/${r.id}`} className="flex flex-col gap-1 px-4 py-3 hover:bg-[var(--surface-2)] sm:flex-row sm:items-center sm:gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {r.handoffStatus === "open" && <Badge tone="red">Cần hỗ trợ{r.handoffReason ? ` · ${HANDOFF_REASON_LABELS[r.handoffReason]}` : ""}</Badge>}
-                    {r.handoffStatus === "resolved" && <Badge tone="green">Đã xử lý</Badge>}
-                    {r.mode === "human" && <Badge tone="violet">Nhân viên đang chat</Badge>}
-                    {r.hasLead && <Badge tone="blue">Có SĐT</Badge>}
+                    {r.handoffStatus === "open" && <Badge tone="red">{t("Cần hỗ trợ")}{r.handoffReason ? ` · ${t(HANDOFF_REASON_LABELS[r.handoffReason])}` : ""}</Badge>}
+                    {r.handoffStatus === "resolved" && <Badge tone="green">{t("Đã xử lý")}</Badge>}
+                    {r.mode === "human" && <Badge tone="violet">{t("Nhân viên đang chat")}</Badge>}
+                    {r.hasLead && <Badge tone="blue">{t("Có SĐT")}</Badge>}
                     {r.rating && <Badge tone="amber">{r.rating}★</Badge>}
                     <span className="text-[12.5px] text-[var(--fg-muted)]">
                       {r.messageCount} tin · khách {r.visitorId.slice(0, 8)}
                     </span>
                   </div>
                   <p className="mt-1 truncate text-[14px] text-[var(--fg)]">
-                    <span className="text-[var(--fg-muted)]">{r.lastRole === "user" ? "Khách: " : r.lastRole === "agent" ? "Nhân viên: " : "Bot: "}</span>
+                    <span className="text-[var(--fg-muted)]">{r.lastRole === "user" ? t("Khách:") : r.lastRole === "agent" ? t("Nhân viên:") : "Bot: "}</span>
                     {r.lastMessage}
                   </p>
                 </div>
@@ -87,7 +89,7 @@ export default async function ConversationsPage({ searchParams }: { searchParams
       <div className="mt-4 flex justify-between">
         {page > 1 ? (
           <Link className={btnSecondary} href={`/admin/conversations${qs({ page: String(page - 1) })}`}>
-            ← Trang trước
+            {t("← Trang trước")}
           </Link>
         ) : (
           <span />

@@ -23,7 +23,7 @@ export async function checkEntitlement(accountId: string, kind: BotKind) {
   const token = await hubAccessToken(accountId);
   if (!token) return null;
   const slug =
-    process.env[kind === "tile" ? "HUB_APP_TILE" : "HUB_APP_AVI"] ||
+    process.env[BOT_PRICING[kind].hubEnv] ||
     BOT_PRICING[kind].hubSlug;
   const parsed = entitlement.parse(
     await hubFetch(`/api/apps/${encodeURIComponent(slug)}/check-access`, {

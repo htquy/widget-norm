@@ -6,7 +6,8 @@ import { DomainError } from "@/domain/errors";
 import type { BotModule } from "../types";
 import { toCard, type TileCatalog } from "./catalog";
 import { DEMO_TILES } from "./demo";
-import { LAYOUT_LABELS, LAYOUT_PATTERNS, formatVnd, type LayoutPattern } from "./domain/quote";
+import { LAYOUT_LABELS, LAYOUT_PATTERNS, formatVnd, resolveAreaM2, type LayoutPattern } from "./domain/quote";
+import { SURFACE_KINDS, isSurfaceKind } from "./domain/tile";
 import type { Quotes } from "./quotes";
 import type { TileRepos } from "./repository";
 import { TileRulesGateway } from "./rules";
@@ -40,7 +41,7 @@ export function makeTileModule(deps: { repos: TileRepos; catalog: TileCatalog; q
           type: "object",
           additionalProperties: false,
           properties: {
-            surface: { type: "string", enum: ["floor", "wall"], description: "floor = lát sàn, wall = ốp tường" },
+            surface: { type: "string", enum: [...SURFACE_KINDS], description: "floor = lát sàn trong nhà, wall = ốp tường (cả ốp bếp, phòng tắm), outdoor = sân vườn/ban công/sân thượng/ngoài trời, roof = ngói lợp mái" },
             style: { type: "string", description: "Phong cách: hiện đại, cổ điển, vân đá, vân gỗ, tối giản..." },
             color: { type: "string", description: "Màu mong muốn" },
             maxPricePerM2: { type: "number", description: "Giá tối đa VND/m²" },
@@ -51,7 +52,7 @@ export function makeTileModule(deps: { repos: TileRepos; catalog: TileCatalog; q
         run: async (raw) => {
           const q = (raw ?? {}) as Record<string, unknown>;
           const cards = await catalog.suggest(tenant.id, {
-            surface: q.surface === "floor" || q.surface === "wall" ? q.surface : undefined,
+            surface: isSurfaceKind(q.surface) ? q.surface : undefined,
             style: typeof q.style === "string" ? q.style : undefined,
             color: typeof q.color === "string" ? q.color : undefined,
             maxPricePerM2: typeof q.maxPricePerM2 === "number" ? q.maxPricePerM2 : undefined,
@@ -75,37 +76,56 @@ export function makeTileModule(deps: { repos: TileRepos; catalog: TileCatalog; q
       },
       {
         name: "calculate_quote",
-        description: "Lập báo giá cho một mẫu gạch theo diện tích. Kết quả gồm số thùng (đã cộng hao hụt), keo, ron và tổng tiền.",
+        description:
+          "Lập báo giá cho một mẫu gạch/ngói. Truyền areaM2 nếu khách cho diện tích; nếu khách cho kích thước thì truyền lengthM/widthM (ốp tường thêm heightM, trừ cửa bằng openingsM2; mái cho diện tích mặt bằng kèm roofPitchDeg) — công cụ tự tính diện tích, KHÔNG tự nhân. Kết quả gồm số thùng/viên (đã cộng hao hụt), keo, ron, tổng tiền và lưu ý.",
         inputSchema: {
           type: "object",
           additionalProperties: false,
           properties: {
             tileId: { type: "string", description: "tileId lấy từ suggest_tiles" },
-            areaM2: { type: "number", description: "Diện tích cần lát (m²)" },
+            surface: { type: "string", enum: [...SURFACE_KINDS], description: "Bề mặt cần lát/ốp/lợp" },
+            areaM2: { type: "number", description: "Diện tích cần lát (m²), nếu khách đã cho" },
+            lengthM: { type: "number", description: "Chiều dài (m)" },
+            widthM: { type: "number", description: "Chiều rộng (m)" },
+            heightM: { type: "number", description: "Chiều cao tường (m) — chỉ khi ốp tường" },
+            openingsM2: { type: "number", description: "Tổng diện tích cửa đi/cửa sổ cần trừ (m²)" },
+            roofPitchDeg: { type: "number", description: "Độ dốc mái (độ) — khi khách cho diện tích mặt bằng mái" },
             pattern: { type: "string", enum: [...LAYOUT_PATTERNS] },
             groutWidthMm: { type: "number", description: "Độ rộng mạch ron (mm), mặc định 2" },
           },
-          required: ["tileId", "areaM2"],
+          required: ["tileId"],
         },
         run: async (raw) => {
           const q = (raw ?? {}) as Record<string, unknown>;
           const pattern = (LAYOUT_PATTERNS as readonly string[]).includes(String(q.pattern)) ? (q.pattern as LayoutPattern) : "straight";
+          const num = (k: string) => (typeof q[k] === "number" ? (q[k] as number) : typeof q[k] === "string" && q[k] ? Number(String(q[k]).replace(",", ".")) : undefined);
+          const surface = isSurfaceKind(q.surface) ? q.surface : undefined;
+          let area: { areaM2: number; how: string };
+          try {
+            area = resolveAreaM2({ surface, areaM2: num("areaM2"), lengthM: num("lengthM"), widthM: num("widthM"), heightM: num("heightM"), openingsM2: num("openingsM2"), roofPitchDeg: num("roofPitchDeg") });
+          } catch (e) {
+            return { error: e instanceof Error ? e.message : "Thiếu diện tích" };
+          }
           const quote = await quotes.create({
             tenantId: tenant.id,
             visitorId: vid,
             variant,
             conversationId,
             tileId: String(q.tileId ?? ""),
-            surfaces: [{ label: "Khu vực cần lát", areaM2: Number(q.areaM2) }],
+            surfaces: [{ label: "Khu vực cần lát", areaM2: area.areaM2 }],
+            surface,
             options: { pattern, groutWidthMm: typeof q.groutWidthMm === "number" ? q.groutWidthMm : 2, groutColor: "cùng tông", includeAdhesive: true, includeGrout: true },
           });
           turn.extras.quoteId = quote.id;
           return {
             quoteId: quote.id,
             tile: quote.tileName,
+            areaFrom: area.how,
             netAreaM2: quote.result.netAreaM2,
             wastePercent: quote.result.wastePercent,
             boxes: quote.result.boxes,
+            unit: quote.result.unit ?? "thùng",
+            notes: quote.result.notes,
             lines: quote.result.lines.map((l) => `${l.description}: ${l.quantity} ${l.unit} = ${formatVnd(l.total)}`),
             total: formatVnd(quote.result.total),
           };
@@ -114,11 +134,13 @@ export function makeTileModule(deps: { repos: TileRepos; catalog: TileCatalog; q
     ],
 
     promptLines: (_tenant, variant) => [
-      `Bạn là nhân viên tư vấn vật liệu ốp lát. Mục tiêu: hiểu nhu cầu (phòng nào, lát sàn hay ốp tường, diện tích, phong cách, ngân sách), gợi ý mẫu phù hợp, lập báo giá, rồi xin tên và số điện thoại/Zalo để nhân viên gửi báo giá chi tiết.`,
-      `- Chỉ giới thiệu mẫu lấy từ suggest_tiles; hỏi sâu một mẫu thì gọi get_tile_details. Không tự tính tiền: khi khách đã chọn mẫu và cho diện tích, gọi calculate_quote rồi nhắc lại số thùng và tổng tiền đúng như kết quả.`,
-      `- Nếu khách chưa biết diện tích, hướng dẫn đo dài × rộng (m) và nhân lại. Kiểu lát hỗ trợ: ${LAYOUT_PATTERNS.map((p) => `${p} (${LAYOUT_LABELS[p]})`).join(", ")}.`,
+      `Bạn là nhân viên tư vấn vật liệu ốp lát. Mục tiêu: hiểu nhu cầu (lát sàn, ốp tường/ốp bếp/phòng tắm, sân vườn ngoài trời hay lợp mái ngói; diện tích, phong cách, ngân sách), gợi ý mẫu phù hợp, lập báo giá, rồi xin tên và số điện thoại/Zalo để nhân viên gửi báo giá chi tiết.`,
+      `- Chỉ giới thiệu mẫu lấy từ suggest_tiles; hỏi sâu một mẫu thì gọi get_tile_details. Không tự tính tiền: khi khách đã chọn mẫu và cho diện tích, gọi calculate_quote rồi nhắc lại số thùng (ngói: số viên) và tổng tiền đúng như kết quả, kèm lưu ý trong notes nếu có.`,
+      `- Khách cho kích thước thì truyền nguyên kích thước vào calculate_quote (ốp tường cả phòng: dài, rộng, cao; trừ cửa bằng openingsM2), không tự nhân. Ngói lợp báo giá theo VIÊN, không cần keo dán/keo ron; nếu khách chỉ biết diện tích mặt bằng mái thì hỏi độ dốc (thường 25–35°) rồi truyền roofPitchDeg.`,
+      `- Sân vườn, ban công, phòng tắm: ưu tiên gạch bề mặt nhám/mờ chống trơn; không gợi ý gạch men bóng cho chỗ ướt ngoài trời.`,
+      `- Nếu khách chưa biết diện tích, hướng dẫn đo dài × rộng (m). Kiểu lát hỗ trợ: ${LAYOUT_PATTERNS.map((p) => `${p} (${LAYOUT_LABELS[p]})`).join(", ")}.`,
       variant === "visualizer"
-        ? `- Khuyến khích khách bấm "Ướm thử ảnh phòng" để xem gạch phủ lên sàn hoặc tường của chính phòng mình.`
+        ? `- Khuyến khích khách bấm "Ướm thử ảnh phòng" để xem gạch phủ lên sàn, tường, sân hoặc mái của chính nhà mình (hoặc thử trên phòng mẫu có sẵn).`
         : `- Nếu khách muốn xem gạch trong phòng, mời khách để lại số điện thoại để nhân viên gửi ảnh mẫu thực tế.`,
       `- Khách muốn khảo sát tại nhà hoặc đến showroom: dùng công cụ đặt lịch nếu có.`,
     ],
@@ -165,6 +187,7 @@ export function makeTileModule(deps: { repos: TileRepos; catalog: TileCatalog; q
             conversationId: z.string().uuid().nullable().optional(),
             tileId: z.string().uuid(),
             surfaces: z.array(z.object({ label: z.string().max(60), areaM2: z.number().positive().max(10_000) })).min(1).max(10),
+            surface: z.enum(SURFACE_KINDS).optional(),
             options: z.object({ pattern: z.enum(LAYOUT_PATTERNS), groutWidthMm: z.number().min(0).max(20), groutColor: z.string().max(30), includeAdhesive: z.boolean(), includeGrout: z.boolean() }),
           })
           .parse(raw);
@@ -177,6 +200,7 @@ export function makeTileModule(deps: { repos: TileRepos; catalog: TileCatalog; q
           tileId: body.tileId,
           surfaces: body.surfaces,
           options: body.options,
+          surface: body.surface,
         });
         return NextResponse.json({ quote });
       }
@@ -202,7 +226,7 @@ export function makeTileModule(deps: { repos: TileRepos; catalog: TileCatalog; q
           if (bytes.byteLength > 3_000_000) throw new DomainError("PREVIEW_TOO_BIG", "Ảnh quá lớn");
           meta.previewUrl = await deps.files.put(`${tenant.id}/previews/${crypto.randomUUID()}.jpg`, bytes, "image/jpeg");
         }
-        const note = [body.note, quote && `Báo giá ${quote.tileName}: ${quote.result.netAreaM2} m², ${quote.result.boxes} thùng, ${formatVnd(quote.result.total)}`].filter(Boolean).join(" — ");
+        const note = [body.note, quote && `Báo giá ${quote.tileName}: ${quote.result.netAreaM2} m², ${quote.result.boxes} ${quote.result.unit ?? "thùng"}, ${formatVnd(quote.result.total)}`].filter(Boolean).join(" — ");
         const lead = await ctx.captureLead({ visitorId: body.visitorId, conversationId: await ctx.ownConversation(body.visitorId, body.conversationId), name: body.name, phone: body.phone, note, meta });
         return NextResponse.json({ ok: true, leadId: lead.id });
       }
@@ -216,7 +240,10 @@ export function makeTileModule(deps: { repos: TileRepos; catalog: TileCatalog; q
     async seedDemo(tenantId) {
       await repos.settings.save(tenantId, await repos.settings.get(tenantId));
       const ids: string[] = [];
+      // Gọi lại được: chỉ thêm mẫu demo còn thiếu (vd ngói, sân vườn thêm về sau), không đụng dữ liệu cũ
+      const have = new Set((await repos.tiles.list(tenantId)).map((t) => t.sku));
       for (const t of DEMO_TILES) {
+        if (have.has(t.sku)) continue;
         const textureUrl = await deps.files.put(`${tenantId}/textures/${t.sku}.svg`, new TextEncoder().encode(t.svg()), "image/svg+xml");
         const created = await repos.tiles.create({
           tenantId,

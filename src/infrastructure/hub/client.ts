@@ -6,7 +6,24 @@ import { getDb } from "../db/client";
 import { hubIdentities, accounts } from "../db/schema";
 import { DomainError } from "@/domain/errors";
 
-export function hubConfig() {
+/**
+ * Địa chỉ công khai của widget để dựng redirect_uri. Production luôn dùng PUBLIC_BASE_URL.
+ * Khi dev (localhost) lấy theo địa chỉ trình duyệt đang mở, để đổi cổng (3000/3001/3101…) không làm
+ * redirect_uri lệch với lúc đăng nhập; hub chấp nhận mọi cổng loopback của client công khai.
+ */
+export function publicBase(req?: Request): string {
+  const configured = (process.env.PUBLIC_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  if (!req || process.env.NODE_ENV === "production") return configured;
+  try {
+    const u = new URL(req.url);
+    if (["localhost", "127.0.0.1"].includes(u.hostname)) return u.origin;
+  } catch {
+    /* dùng cấu hình */
+  }
+  return configured;
+}
+
+export function hubConfig(req?: Request) {
   const base = process.env.HUB_BASE_URL?.replace(/\/$/, "");
   if (!base || !process.env.HUB_CLIENT_ID)
     throw new DomainError(
@@ -25,7 +42,7 @@ export function hubConfig() {
   return {
     base,
     clientId: process.env.HUB_CLIENT_ID,
-    redirect: `${process.env.PUBLIC_BASE_URL ?? "http://localhost:3000"}/api/auth/hub/callback`,
+    redirect: `${publicBase(req)}/api/auth/hub/callback`,
   };
 }
 const key = () => {

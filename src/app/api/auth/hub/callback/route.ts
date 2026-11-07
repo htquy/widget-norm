@@ -5,19 +5,20 @@ import {
   connectIdentity,
   hubConfig,
   hubFetch,
+  publicBase,
   unseal,
 } from "@/infrastructure/hub/client";
 import { createSession, getSession } from "@/infrastructure/auth/session";
 import { app } from "@/infrastructure/container";
 
 export async function GET(req: Request) {
-  const base = process.env.PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const base = publicBase(req);
   const jar = await cookies();
   const value = jar.get("wn_oauth")?.value;
   jar.set("wn_oauth", "", { path: "/api/auth/hub", maxAge: 0 });
   try {
     const url = new URL(req.url),
-      cfg = hubConfig();
+      cfg = hubConfig(req);
     if (!value || url.searchParams.has("error"))
       throw new Error("OAuth cancelled");
     const saved = await unseal(value);

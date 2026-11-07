@@ -23,8 +23,11 @@ import {
   DEMO_TILE_QUESTIONS,
   DEMO_TILE_SERVICES,
 } from "@/bots/tile/demo";
+import { DEMO_EDU_KNOWLEDGE, DEMO_EDU_QUESTIONS, DEMO_EDU_SERVICES } from "@/bots/education/demo";
+import { DEMO_FURNITURE_KNOWLEDGE, DEMO_FURNITURE_QUESTIONS, DEMO_FURNITURE_SERVICES } from "@/bots/furniture/demo";
 import type { DB } from "./client";
 import {
+  accounts as accountsTable,
   bookings,
   conversations,
   events,
@@ -39,8 +42,12 @@ import { eq } from "drizzle-orm";
 
 export const DEMO_SLUG = "avi-demo";
 export const DEMO_TILE_SLUG = "gach-dep-demo";
+export const DEMO_EDU_SLUG = "trung-tam-demo";
+export const DEMO_FURNITURE_SLUG = "noi-that-demo";
 export const DEMO_EMAIL = "admin@demo.vn";
 export const DEMO_PASSWORD = "demo1234";
+/** Tài khoản demo sở hữu 5 bot (AVI, AVI Shop, gạch, đào tạo, nội thất) — vượt giới hạn gói Pro (3 bot). */
+const DEMO_PLAN = "business";
 
 interface SeedDeps {
   tenants: Tenants;
@@ -60,7 +67,8 @@ export async function seedIfEmpty(db: DB, deps: SeedDeps) {
   if (existing.length > 0) {
     await upgradeLumiDemo(db, deps);
     if (!process.env.DATABASE_URL || process.env.SEED_DEMO === "true") {
-      await ensureDemoBots(db, deps);
+      // Bổ sung bot demo còn thiếu là việc phụ: lỗi ở đây không được làm hỏng mọi request.
+      await ensureDemoBots(db, deps).catch((e) => console.error("[seed] ensureDemoBots:", e));
     }
     return;
   }
@@ -73,12 +81,25 @@ export async function seedIfEmpty(db: DB, deps: SeedDeps) {
 async function ensureDemoBots(db: DB, deps: SeedDeps) {
   const avi = await deps.tenants.bySlug(DEMO_SLUG).catch(() => null);
   const tile = await deps.tenants.bySlug(DEMO_TILE_SLUG).catch(() => null);
-  if (avi && tile) return;
+  const edu = await deps.tenants.bySlug(DEMO_EDU_SLUG).catch(() => null);
+  const furn = await deps.tenants.bySlug(DEMO_FURNITURE_SLUG).catch(() => null);
+  // Shop demo gạch đã có: bổ sung mẫu demo mới (ngói, sân vườn, gạch thẻ...) nếu còn thiếu
+  if (tile) await deps.modules.tile.seedDemo(tile.id);
+  if (furn) await deps.modules.furniture.seedDemo(furn.id);
+  if (edu) {
+    await deps.modules.education.seedDemo(edu.id);
+    // Bot demo "đào tạo" cũ → đổi sang IELTS (chỉ fixture demo, không đụng bot của khách)
+    if (/trợ lý tuyển sinh/.test(edu.settings.greeting)) await deps.tenants.updateSettings(edu.id, { ...edu.settings, ...eduDemoSettings(edu.settings), shopName: "Anh ngữ Sao Mai" });
+  }
+  if (avi && tile && edu && furn) return;
 
   const demoUser = await deps.users.findByEmail(DEMO_EMAIL).catch(() => null);
   let accountId: string;
   if (demoUser) {
     accountId = demoUser.accountId;
+    // DB cũ tạo tài khoản demo ở gói Pro (tối đa 3 bot): thêm bot demo mới sẽ ném PLAN_LIMIT
+    // ngay khi khởi tạo container và làm hỏng mọi request, kể cả chat.
+    await db.update(accountsTable).set({ plan: DEMO_PLAN }).where(eq(accountsTable.id, accountId));
   } else {
     const existingTenant = await db.select({ accountId: tenants.accountId }).from(tenants).limit(1);
     if (existingTenant[0]?.accountId) {
@@ -87,7 +108,7 @@ async function ensureDemoBots(db: DB, deps: SeedDeps) {
       const account = await deps.accounts.create({
         name: "Tài khoản demo",
         email: DEMO_EMAIL,
-        plan: "pro",
+        plan: DEMO_PLAN,
         trialEndsAt: null,
       });
       accountId = account.id;
@@ -182,6 +203,9 @@ async function ensureDemoBots(db: DB, deps: SeedDeps) {
       });
     }
   }
+
+  if (!edu) await createEducationDemo(db, deps, accountId);
+  if (!furn) await createFurnitureDemo(db, deps, accountId);
 }
 
 /** Only the named built-in fixture is upgraded; customer tenants are never rewritten. */
@@ -281,7 +305,7 @@ async function seedDemo(db: DB, deps: SeedDeps) {
   const account = await deps.accounts.create({
     name: "Tài khoản demo",
     email: DEMO_EMAIL,
-    plan: "pro",
+    plan: DEMO_PLAN,
     trialEndsAt: null,
   });
   await deps.users.create({
@@ -374,6 +398,54 @@ async function seedDemo(db: DB, deps: SeedDeps) {
       seed: 7,
       ab: true,
     });
+  }
+  await createEducationDemo(db, deps, account.id);
+  await createFurnitureDemo(db, deps, account.id);
+}
+
+/** Cấu hình bot demo IELTS (dùng cả khi tạo mới lẫn khi nâng cấp bot demo "đào tạo" cũ) */
+const eduDemoSettings = (base: TenantSettings) =>
+  ({
+    industry: "trung tâm tiếng Anh và luyện thi IELTS",
+    phone: "0901 234 567",
+    address: "12 Nguyễn Du, Q.1, TP.HCM",
+    greeting: "Xin chào! Mình là trợ lý của Anh ngữ Sao Mai. Bạn muốn biết mình đang ở band nào, hay cần lộ trình lên band mục tiêu trước ngày thi? Mình làm cả hai ngay trong chat nhé.",
+    knowledgeBase: DEMO_EDU_KNOWLEDGE,
+    botInstructions: "Xưng mình, gọi bạn. Chưa rõ trình độ thì mời làm test 15 câu; có band hiện tại và mục tiêu thì lập lộ trình.",
+    quickReplies: ["Em mất gốc muốn 6.5", "Kịp thi trước tháng 6 không?", "Học thử miễn phí", "Gặp tư vấn viên"],
+    theme: { ...base.theme, primaryColor: "#1d3a6e", botName: "Sao Mai IELTS", headerSubtitle: "Test đầu vào & lộ trình", launcherLabel: "Test trình độ IELTS" },
+  }) satisfies Partial<TenantSettings>;
+
+/** Bot 3: Anh ngữ Sao Mai (luyện thi IELTS) */
+async function createEducationDemo(db: DB, deps: SeedDeps, accountId: string) {
+  const base = defaultSettings("Anh ngữ Sao Mai");
+  const t = await deps.tenants.createBot(accountId, "education", "Anh ngữ Sao Mai", eduDemoSettings(base));
+  await fixSlug(db, t.id, DEMO_EDU_SLUG);
+  const items = await deps.modules.education.seedDemo(t.id);
+  const svc = await createServices(deps, t.id, DEMO_EDU_SERVICES);
+  if (process.env.SEED_DEMO_ANALYTICS !== "false") {
+    await seedDemoAnalytics(db, { tenantId: t.id, items, services: svc, questions: DEMO_EDU_QUESTIONS, interestEvent: "product_clicked", seed: 21, ab: false });
+  }
+}
+
+/** Bot 4: Nhà Gỗ Demo (nội thất) */
+async function createFurnitureDemo(db: DB, deps: SeedDeps, accountId: string) {
+  const base = defaultSettings("Nhà Gỗ Demo");
+  const t = await deps.tenants.createBot(accountId, "furniture", "Nhà Gỗ Demo", {
+    industry: "nội thất: sofa, bàn ăn, giường, tủ",
+    phone: "0901 234 567",
+    address: "88 Điện Biên Phủ, Q.3, TP.HCM",
+    greeting: "Xin chào! Mình là trợ lý của Nhà Gỗ Demo. Bạn đang bày trí phòng nào, kích thước khoảng bao nhiêu để mình chọn món đặt vừa nhé?",
+    knowledgeBase: DEMO_FURNITURE_KNOWLEDGE,
+    botInstructions: "Xưng mình, gọi bạn hoặc anh/chị. Hỏi loại phòng và kích thước trước khi chốt món lớn.",
+    quickReplies: ["Sofa cho phòng khách", "Kiểm tra món có vừa phòng", "Đặt lịch đo đạc tại nhà", "Gặp nhân viên"],
+    theme: { ...base.theme, primaryColor: "#9a5b2e", botName: "Nhà Gỗ", headerSubtitle: "Tư vấn nội thất", launcherLabel: "Tư vấn nội thất" },
+  } satisfies Partial<TenantSettings>);
+  await fixSlug(db, t.id, DEMO_FURNITURE_SLUG);
+  const items = await deps.modules.furniture.seedDemo(t.id);
+  const svc = await createServices(deps, t.id, DEMO_FURNITURE_SERVICES);
+  if (process.env.SEED_DEMO_ANALYTICS !== "false") {
+    await seedDemoAnalytics(db, { tenantId: t.id, items, services: svc, questions: DEMO_FURNITURE_QUESTIONS, interestEvent: "product_clicked", seed: 33, ab: false });
   }
 }
 

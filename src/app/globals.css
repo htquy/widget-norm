@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Product studio / AVI retail / material studio: distinct content-led identities. */
 .section-space {
@@ -11,13 +12,20 @@
   line-height: 1.18;
   letter-spacing: -0.04em;
   text-wrap: balance;
+  color: #09090b;
+}
+:where(.dark) .section-heading h2 {
+  color: #f4f5f7;
 }
 .section-heading > p:last-of-type {
   margin-top: 1.2rem;
   max-width: 38rem;
-  color: #626779;
+  color: #52525b;
   font-size: 1rem;
   line-height: 1.8;
+}
+:where(.dark) .section-heading > p:last-of-type {
+  color: #a1a1aa;
 }
 .section-heading.text-center > p {
   margin-inline: auto;
@@ -25,23 +33,22 @@
 .hub-hero {
   position: relative;
   overflow: hidden;
-  padding-block: clamp(3rem, 6vw, 6rem);
-  background: linear-gradient(110deg, #fff 30%, #f2f0fe 100%);
+  padding-block: clamp(3.5rem, 6.5vw, 6.5rem);
+  background: radial-gradient(130% 100% at 50% 0%, #f5f2ff 0%, #ffffff 65%);
 }
 .hero-title {
-  font-size: clamp(2.75rem, 5vw, 4.8rem);
+  font-size: clamp(2.6rem, 5.2vw, 4.5rem);
   line-height: 1.1;
-  font-weight: 720;
-  letter-spacing: -0.055em;
-  color: #202436;
+  font-weight: 750;
+  letter-spacing: -0.05em;
+  color: #18181b;
 }
 .product-preview {
   position: relative;
-  border: 1px solid #dcdbea;
-  border-radius: 18px;
+  border: 1px solid rgba(220, 219, 234, 0.8);
+  border-radius: 24px;
   background: #fff;
-  box-shadow: 0 28px 70px -30px #4f3c8b50;
-  transform: perspective(1400px) rotateY(-4deg);
+  box-shadow: 0 24px 60px -20px rgba(95, 69, 228, 0.18), 0 10px 25px -10px rgba(0, 0, 0, 0.04);
 }
 .preview-bar {
   display: flex;
@@ -163,20 +170,36 @@
   padding: 28px;
   border-radius: 20px;
   background: #f8f7fc;
+  border: 1px solid #ebe8f7;
+  color: #18181b;
+}
+:where(.dark) .avi-feature {
+  background: #0d101d;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #f4f5f7;
 }
 .tile-site {
   color: #243941;
+}
+:where(.dark) .tile-site {
+  color: #e2e8f0;
 }
 .tile-hero {
   padding-block: clamp(2rem, 5vw, 5rem);
   background: #edf2f3;
 }
+:where(.dark) .tile-hero {
+  background: radial-gradient(120% 90% at 80% 0%, #0d2233 0%, #08111a 60%);
+}
 .tile-title {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Noto Serif", Cambria, "Times New Roman", serif; /* Georgia thiếu dấu tiếng Việt chồng (ấ, ộ…) */
   font-size: clamp(3.5rem, 5.7vw, 5.5rem);
   letter-spacing: -0.045em;
   line-height: 1.02;
   color: #15476d;
+}
+:where(.dark) .tile-title {
+  color: #e0f2fe;
 }
 .tile-button {
   display: inline-flex;
@@ -353,11 +376,11 @@
   --border: #e3e6eb;
   --fg: #14171c;
   --fg-muted: #555d6b;
-  --accent: #4338ca;
+  --accent: #5f45e4; /* = brand-600, cùng màu mục đang chọn ở sidebar */
   --accent-fg: #ffffff;
   --danger: #b42318;
   --success: #067647;
-  --focus: #4338ca;
+  --focus: #5f45e4;
 }
 
 html,
@@ -421,6 +444,8 @@ body {
 
 /* ===== Token & hiệu ứng trang marketing — kế thừa từ skill-pages (xem .claude/skills/hub-landing-design) ===== */
 @theme {
+  /* Lớp font-serif: mặc định Tailwind ưu tiên Georgia (thiếu dấu tiếng Việt chồng) */
+  --font-serif: "Noto Serif", Cambria, "Times New Roman", ui-serif, serif;
   --color-brand-50: #f1f0ff;
   --color-brand-100: #e5e3ff;
   --color-brand-200: #cdcaff;
@@ -502,6 +527,22 @@ body {
     100% {
       transform: scale(2.2);
       opacity: 0;
+    }
+  }
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes lumen-bar {
+    0% {
+      transform: scaleY(0.3);
+    }
+    100% {
+      transform: scaleY(1);
     }
   }
 }
@@ -849,4 +890,449 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ---------- AVI Nội thất: studio gỗ ấm, kê đồ trên ảnh phòng ---------- */
+.furn-site {
+  color: #2d2118;
+  background: #fbf7f1;
+}
+:where(.dark) .furn-site {
+  color: #f5efe6;
+  background: #0d0a08;
+}
+.furn-hero {
+  padding-block: clamp(2rem, 5vw, 5rem);
+  background: radial-gradient(120% 80% at 90% 0%, #f1e2cf 0%, #f5efe6 55%);
+}
+:where(.dark) .furn-hero {
+  background: radial-gradient(120% 80% at 90% 0%, #2b180d 0%, #120b07 60%);
+}
+.furn-eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #b4532a;
+}
+.furn-title,
+.furn-h2 {
+  font-family: "Noto Serif", "Palatino Linotype", Cambria, "Times New Roman", serif;
+  letter-spacing: -0.03em;
+  color: #2d2118;
+  text-wrap: balance;
+}
+:where(.dark) .furn-title,
+:where(.dark) .furn-h2 {
+  color: #fef3c7;
+}
+.furn-title {
+  font-size: clamp(3rem, 6vw, 5.4rem);
+  line-height: 0.98;
+}
+.furn-title em,
+.furn-h2 em {
+  color: #b4532a;
+}
+.furn-h2 {
+  font-size: clamp(1.9rem, 3.4vw, 2.8rem);
+  line-height: 1.08;
+}
+.furn-button {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 12px;
+  border-radius: 999px;
+  background: #2d2118;
+  color: #f5efe6;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.furn-button:hover {
+  background: #b4532a;
+}
+.furn-stage {
+  position: relative;
+}
+.furn-room {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 28px;
+  box-shadow: 0 30px 60px -30px #4a321d66;
+  background: #ece6dc;
+}
+.furn-wall {
+  position: absolute;
+  inset: 0 0 42% 0;
+  background: linear-gradient(#efe9df, #e6ddcf);
+}
+.furn-window {
+  position: absolute;
+  left: 36%;
+  top: 10%;
+  width: 26%;
+  height: 32%;
+  border: 6px solid #fff;
+  background: linear-gradient(#cfe1ec, #f1f6f7);
+}
+.furn-floor {
+  position: absolute;
+  inset: 58% 0 0 0;
+  background: repeating-linear-gradient(90deg, #b99470 0 46px, #a9845f 47px 48px), #b99470;
+  transform-origin: top;
+}
+.furn-piece {
+  position: absolute;
+  height: auto;
+  filter: drop-shadow(0 10px 8px #2d211855);
+}
+.furn-dim {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  border-top: 2px solid #fff;
+  padding-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px #0008;
+}
+.furn-pin {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: #2d2118e6;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+.furn-pin-ok {
+  background: #f5efe6f2;
+  color: #2d2118;
+}
+.furn-caption {
+  position: relative;
+  margin: -36px 24px 0 auto;
+  display: flex;
+  max-width: 360px;
+  align-items: center;
+  gap: 14px;
+  border-radius: 18px;
+  background: #fff;
+  padding: 14px 18px;
+  font-size: 12.5px;
+  color: #5c4d40;
+  box-shadow: 0 18px 40px -24px #4a321d88;
+}
+.furn-caption strong {
+  display: block;
+  font-size: 14px;
+  color: #2d2118;
+}
+.furn-num {
+  font-family: "Noto Serif", Cambria, "Times New Roman", serif;
+  font-size: 44px;
+  line-height: 1;
+  color: #b4532a;
+}
+.furn-feature {
+  padding: 22px 0;
+  border-top: 1px solid #d9cbb8;
+}
+
+/* ---------- AVI IELTS: sổ luyện thi, phiếu test + lộ trình ---------- */
+.ielts-site {
+  color: #1d2a44;
+  background: #fff;
+}
+:where(.dark) .ielts-site {
+  color: #e2e8f0;
+  background: #060b13;
+}
+.ielts-hero {
+  padding-block: clamp(2rem, 5vw, 5rem);
+  background:
+    linear-gradient(90deg, transparent 0 46px, #e8a39866 46px 48px, transparent 48px),
+    repeating-linear-gradient(#fbfaf4 0 31px, #dfe6f0 31px 32px);
+}
+:where(.dark) .ielts-hero {
+  background: radial-gradient(120% 90% at 85% 0%, #0a252a 0%, #070e17 65%);
+}
+.ielts-ruled {
+  background: repeating-linear-gradient(#fbfaf4 0 31px, #e7ecf3 31px 32px);
+}
+:where(.dark) .ielts-ruled {
+  background: #0d1624;
+}
+.ielts-eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c2412d;
+}
+.ielts-title,
+.ielts-h2 {
+  font-family: "Noto Serif", Cambria, "Times New Roman", serif; /* Georgia thiếu dấu tiếng Việt chồng (ấ, ộ…) */
+  letter-spacing: -0.025em;
+  color: #1d2a44;
+  text-wrap: balance;
+}
+:where(.dark) .ielts-title,
+:where(.dark) .ielts-h2 {
+  color: #f1f5f9;
+}
+.ielts-title {
+  font-size: clamp(2.4rem, 4.6vw, 4.1rem);
+  line-height: 1.06;
+}
+.ielts-title mark {
+  background: linear-gradient(transparent 55%, #ffe27a 55%);
+  color: inherit;
+}
+.ielts-h2 {
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  line-height: 1.1;
+}
+.ielts-button {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 12px;
+  border: 2px solid #1d2a44;
+  border-radius: 10px;
+  background: #1d2a44;
+  color: #fff;
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 4px 4px 0 #c2412d;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.ielts-button:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 6px 6px 0 #c2412d;
+}
+.ielts-stage {
+  position: relative;
+  display: grid;
+  gap: 16px;
+}
+@media (min-width: 640px) {
+  .ielts-stage {
+    grid-template-columns: 1.15fr 0.85fr;
+    align-items: end;
+  }
+}
+.ielts-sheet,
+.ielts-result {
+  border: 2px solid #1d2a44;
+  border-radius: 14px;
+  background: #fff;
+  padding: 20px;
+  box-shadow: 6px 6px 0 #1d2a44;
+}
+.ielts-result {
+  background: #fffdf4;
+}
+.ielts-progress {
+  display: block;
+  width: 90px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 9px;
+  background: #e4e8ef;
+}
+.ielts-progress span {
+  display: block;
+  height: 100%;
+  background: #c2412d;
+}
+.ielts-option {
+  display: block;
+  border: 1.5px solid #d4dae4;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: #1d2a44;
+}
+.ielts-option b {
+  margin-right: 6px;
+  color: #5b6b86;
+}
+.ielts-option-on {
+  border-color: #1d2a44;
+  background: #fff4c2;
+}
+.ielts-band {
+  margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+  color: #c2412d;
+}
+.ielts-band span {
+  margin-left: 10px;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #5b6b86;
+}
+.ielts-dot {
+  position: absolute;
+  left: 0;
+  top: 1px;
+  display: flex;
+  height: 16px;
+  width: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #1d2a44;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+}
+.ielts-num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #c2412d;
+}
+.ielts-point {
+  border-top: 2px solid #1d2a44;
+  padding-top: 16px;
+}
+.ielts-card {
+  border: 1.5px solid #d4dae4;
+  border-radius: 14px;
+  background: #fff;
+  padding: 20px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ielts-button {
+    transition: none;
+  }
+}
+
+/* ---------- Admin: chế độ tối đồng bộ với website (cùng bảng màu Lumen: nền #07080b, mặt #0d1017, nhấn tím thương hiệu) ---------- */
+.dark [data-admin] {
+  color-scheme: dark;
+  --bg: #07080b;
+  --surface: #0d1017;
+  --surface-2: #151922;
+  --border: rgb(160 172 196 / 0.16);
+  --fg: #f4f5f7;
+  --fg-muted: #a0a8b6;
+  --accent: #7a66f2;
+  --accent-fg: #ffffff;
+  --danger: #ff8a80;
+  --success: #4ade80;
+  --focus: #9585f6;
+  background: var(--bg);
+  color: var(--fg);
+}
+.dark [data-admin].admin-shell,
+.dark [data-admin] .admin-shell {
+  background: var(--bg);
+}
+.dark [data-admin] .admin-sidebar {
+  background: #0a0c11;
+  border-right: 1px solid rgb(160 172 196 / 0.1);
+}
+.dark [data-admin] .admin-sidebar nav a[aria-current="page"] {
+  background: rgb(122 102 242 / 0.22);
+  box-shadow: inset 0 0 0 1px rgb(122 102 242 / 0.5);
+}
+.dark [data-admin] .admin-sidebar select {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+.dark [data-admin] .admin-sidebar .admin-user {
+  border-color: var(--border);
+}
+.dark [data-admin] .admin-main section {
+  box-shadow: none;
+}
+.dark [data-admin] .admin-topbar {
+  border-color: var(--border);
+}
+.dark [data-admin] .workspace-welcome {
+  background: rgb(122 102 242 / 0.14);
+}
+/* Class Tailwind màu cố định (sáng) → token tối, để mọi trang cũ đồng bộ mà không phải sửa từng chỗ */
+.dark [data-admin] .bg-white,
+.dark [data-admin] .bg-\[\#fafafe\] {
+  background-color: var(--surface);
+}
+.dark [data-admin] .bg-zinc-50,
+.dark [data-admin] .bg-zinc-100,
+.dark [data-admin] .bg-neutral-50,
+.dark [data-admin] .bg-neutral-100 {
+  background-color: var(--surface-2);
+}
+.dark [data-admin] .text-zinc-500,
+.dark [data-admin] .text-zinc-600,
+.dark [data-admin] .text-zinc-700,
+.dark [data-admin] .text-neutral-500,
+.dark [data-admin] .text-neutral-600,
+.dark [data-admin] .text-neutral-700 {
+  color: var(--fg-muted);
+}
+.dark [data-admin] .text-zinc-800,
+.dark [data-admin] .text-zinc-900,
+.dark [data-admin] .text-neutral-800,
+.dark [data-admin] .text-neutral-900 {
+  color: var(--fg);
+}
+.dark [data-admin] .border-zinc-200,
+.dark [data-admin] .border-zinc-300,
+.dark [data-admin] .border-neutral-200,
+.dark [data-admin] .border-neutral-300 {
+  border-color: var(--border);
+}
+.dark [data-admin] .ring-zinc-200,
+.dark [data-admin] .ring-neutral-200 {
+  --tw-ring-color: var(--border);
+}
+.dark [data-admin] .placeholder\:text-neutral-400::placeholder {
+  color: #6b7381;
+}
+.dark [data-admin] .hover\:bg-\[var\(--surface-2\)\]:hover {
+  background-color: #1b2030;
+}
+/* Huy hiệu trạng thái: nền mờ, chữ sáng */
+.dark [data-admin] .bg-blue-50 { background-color: rgb(59 130 246 / 0.16); }
+.dark [data-admin] .text-blue-800, .dark [data-admin] .text-blue-900 { color: #9cc3ff; }
+.dark [data-admin] .ring-blue-200, .dark [data-admin] .ring-blue-100 { --tw-ring-color: rgb(59 130 246 / 0.35); }
+.dark [data-admin] .bg-amber-50 { background-color: rgb(245 158 11 / 0.15); }
+.dark [data-admin] .text-amber-900, .dark [data-admin] .text-amber-800, .dark [data-admin] .text-amber-700 { color: #fcd34d; }
+.dark [data-admin] .ring-amber-200 { --tw-ring-color: rgb(245 158 11 / 0.35); }
+.dark [data-admin] .bg-violet-50 { background-color: rgb(139 92 246 / 0.18); }
+.dark [data-admin] .text-violet-800 { color: #c4b5fd; }
+.dark [data-admin] .ring-violet-200 { --tw-ring-color: rgb(139 92 246 / 0.4); }
+.dark [data-admin] .bg-emerald-50 { background-color: rgb(16 185 129 / 0.15); }
+.dark [data-admin] .text-emerald-800, .dark [data-admin] .text-emerald-700 { color: #6ee7b7; }
+.dark [data-admin] .ring-emerald-200 { --tw-ring-color: rgb(16 185 129 / 0.35); }
+.dark [data-admin] .bg-red-50, .dark [data-admin] .bg-rose-50 { background-color: rgb(239 68 68 / 0.15); }
+.dark [data-admin] .text-red-800, .dark [data-admin] .text-red-900, .dark [data-admin] .text-red-700, .dark [data-admin] .text-red-600, .dark [data-admin] .text-rose-700 { color: #fca5a5; }
+.dark [data-admin] .ring-red-200, .dark [data-admin] .border-red-200, .dark [data-admin] .border-red-300 { --tw-ring-color: rgb(239 68 68 / 0.4); border-color: rgb(239 68 68 / 0.4); }
+.dark [data-admin] .bg-brand-50 { background-color: rgb(122 102 242 / 0.16); }
+.dark [data-admin] .text-brand-800 { color: #c9c0ff; }
+.dark [data-admin] .border-brand-200 { border-color: rgb(122 102 242 / 0.45); }
+/* Xem trước widget giữ nguyên màu sáng/tối do theme của shop quyết định */
+.dark [data-admin] .admin-keep-theme,
+.dark [data-admin] .admin-keep-theme * {
+  color-scheme: light;
+}
+
+.dark [data-admin] .has-\[\:checked\]\:bg-brand-50:has(:checked) {
+  background-color: rgb(122 102 242 / 0.16);
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/lib/i18n/client";
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, X } from "lucide-react";
 
@@ -13,6 +14,7 @@ export function DemoWidget({
   name: string;
   accent: string;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
   const launcher = useRef<HTMLButtonElement>(null);
@@ -44,7 +46,7 @@ export function DemoWidget({
       <button
         ref={launcher}
         type="button"
-        aria-label={`Chat thử ${name}`}
+        aria-label={`${t("Chat thử")} ${name}`}
         aria-expanded={open}
         aria-controls="bot-demo-widget"
         onClick={() => setOpen((value) => !value)}
@@ -52,28 +54,28 @@ export function DemoWidget({
         style={{ background: accent }}
       >
         <MessageCircle className="size-5" />
-        Chat thử {name}
+        {t("Chat thử")} {name}
       </button>
       <div
         id="bot-demo-widget"
         role="dialog"
-        aria-label={`Dùng thử ${name}`}
+        aria-label={`${t("Dùng thử")} ${name}`}
         hidden={!open}
         className="fixed inset-0 z-[60] flex flex-col overflow-hidden border border-zinc-200 bg-white shadow-2xl sm:inset-auto sm:bottom-24 sm:right-6 sm:h-[min(720px,calc(100dvh-120px))] sm:w-[410px] sm:rounded-2xl"
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-4 py-2">
           <div>
             <p className="text-sm font-semibold text-zinc-900">
-              Dùng thử {name}
+              {t("Dùng thử")} {name}
             </p>
             <p className="text-[11px] text-zinc-500">
-              Dữ liệu mẫu · Không cần đăng nhập
+              {t("Dữ liệu mẫu · Không cần đăng nhập")}
             </p>
           </div>
           <button
             type="button"
             onClick={close}
-            aria-label="Đóng bản dùng thử"
+            aria-label={t("Đóng bản dùng thử")}
             className="grid size-11 shrink-0 place-items-center rounded-xl text-zinc-600 hover:bg-zinc-200"
           >
             <X className="size-5" />
@@ -82,7 +84,7 @@ export function DemoWidget({
         {open && (
           <iframe
             ref={frame}
-            title={`Widget mẫu ${name}`}
+            title={`${t("Widget mẫu")} ${name}`}
             src={`/embed/${encodeURIComponent(tenant)}`}
             className="min-h-0 flex-1 border-0"
             allow="clipboard-write"

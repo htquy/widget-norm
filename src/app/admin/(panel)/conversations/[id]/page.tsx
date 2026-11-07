@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DECISION_LABEL_TEXT, HANDOFF_REASON_LABELS, type DecisionLabel } from "@/domain/decision";
@@ -8,16 +9,17 @@ import { AutoRefresh } from "@/components/admin/AutoRefresh";
 import { Badge, Card, PageHeader, btnPrimary, btnSecondary, fmtDateTime, fmtTime } from "@/components/admin/ui";
 import { resolveAction, takeOverAction } from "../../../actions";
 
-const ROUTE_TEXT = (r?: string) => {
+const ROUTE_TEXT = (r: string | undefined, t: (vi: string) => string) => {
   if (!r) return null;
-  if (r.startsWith("template")) return "trả lời mẫu";
-  if (r.startsWith("handoff")) return "chuyển nhân viên";
-  if (r === "llm_simple") return "LLM rẻ";
-  if (r === "llm_complex") return "LLM mạnh";
+  if (r.startsWith("template")) return t("trả lời mẫu");
+  if (r.startsWith("handoff")) return t("chuyển nhân viên");
+  if (r === "llm_simple") return t("LLM rẻ");
+  if (r === "llm_complex") return t("LLM mạnh");
   return r;
 };
 
 export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { t } = await getT();
   const s = await requireSession();
   const { id } = await params;
   const c = await app();
@@ -30,16 +32,16 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
     <>
       <AutoRefresh seconds={5} />
       <PageHeader
-        title="Chi tiết hội thoại"
+        title={t("Chi tiết hội thoại")}
         subtitle={`Khách ${conv.visitorId.slice(0, 8)} · bắt đầu ${fmtDateTime(conv.createdAt)}`}
         actions={
           <Link href="/admin/conversations" className={btnSecondary}>
-            ← Danh sách
+            {t("← Danh sách")}
           </Link>
         }
       />
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2" title="Nội dung">
+        <Card className="lg:col-span-2" title={t("Nội dung")}>
           <ol className="space-y-3">
             {conv.transcript.map((e) =>
               e.role === "system" ? (
@@ -50,7 +52,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
                 <li key={e.id} className={`flex ${e.role === "user" ? "justify-start" : "justify-end"}`}>
                   <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-[14px] ${e.role === "user" ? "bg-[var(--surface-2)]" : e.role === "agent" ? "bg-violet-50 ring-1 ring-violet-200" : "bg-blue-50 ring-1 ring-blue-100"}`}>
                     <p className="mb-1 flex flex-wrap items-center gap-1.5 text-[11.5px] text-[var(--fg-muted)]">
-                      <b className="text-[var(--fg)]">{e.role === "user" ? "Khách" : e.role === "agent" ? (e.agentName ?? "Nhân viên") : "Bot"}</b>
+                      <b className="text-[var(--fg)]">{e.role === "user" ? t("Khách") : e.role === "agent" ? (e.agentName ?? t("Nhân viên")) : "Bot"}</b>
                       {fmtTime(new Date(e.at))}
                       {e.role === "user" && e.meta?.label && (
                         <Badge tone={e.meta.sentiment === "negative" ? "red" : "gray"}>
@@ -58,10 +60,10 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
                           {e.meta.confidence != null ? ` ${Math.round(e.meta.confidence * 100)}%` : ""}
                         </Badge>
                       )}
-                      {e.role === "assistant" && e.meta?.route && <Badge tone="gray">{ROUTE_TEXT(e.meta.route)}</Badge>}
-                      {e.meta?.unresolved && <Badge tone="amber">chưa giải quyết</Badge>}
-                      {e.feedback === 1 && <Badge tone="green">👍 khách thấy hữu ích</Badge>}
-                      {e.feedback === -1 && <Badge tone="red">👎 khách chưa hài lòng</Badge>}
+                      {e.role === "assistant" && e.meta?.route && <Badge tone="gray">{ROUTE_TEXT(e.meta.route, t)}</Badge>}
+                      {e.meta?.unresolved && <Badge tone="amber">{t("chưa giải quyết")}</Badge>}
+                      {e.feedback === 1 && <Badge tone="green">{t("👍 khách thấy hữu ích")}</Badge>}
+                      {e.feedback === -1 && <Badge tone="red">{t("👎 khách chưa hài lòng")}</Badge>}
                     </p>
                     <p className="whitespace-pre-wrap">{e.text}</p>
                     {e.meta?.model && <p className="mt-1 font-mono text-[11px] text-[var(--fg-muted)]">{e.meta.model}</p>}
@@ -73,11 +75,11 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
         </Card>
 
         <div className="space-y-4">
-          <Card title="Hỗ trợ trực tiếp">
+          <Card title={t("Hỗ trợ trực tiếp")}>
             <div className="mb-3 flex flex-wrap gap-1.5">
-              {conv.mode === "human" ? <Badge tone="violet">Nhân viên đang chat — bot tạm dừng</Badge> : <Badge tone="blue">Bot đang trả lời</Badge>}
-              {conv.handoffStatus === "open" && <Badge tone="red">Cần hỗ trợ{conv.handoffReason ? `: ${HANDOFF_REASON_LABELS[conv.handoffReason]}` : ""}</Badge>}
-              {conv.handoffStatus === "resolved" && <Badge tone="green">Đã xử lý</Badge>}
+              {conv.mode === "human" ? <Badge tone="violet">{t("Nhân viên đang chat — bot tạm dừng")}</Badge> : <Badge tone="blue">{t("Bot đang trả lời")}</Badge>}
+              {conv.handoffStatus === "open" && <Badge tone="red">{t("Cần hỗ trợ")}{conv.handoffReason ? `: ${t(HANDOFF_REASON_LABELS[conv.handoffReason])}` : ""}</Badge>}
+              {conv.handoffStatus === "resolved" && <Badge tone="green">{t("Đã xử lý")}</Badge>}
               {conv.rating && <Badge tone="amber">Khách đánh giá {conv.rating}★</Badge>}
             </div>
             <AgentReplyForm id={conv.id} />
@@ -85,21 +87,21 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
               {conv.mode !== "human" && (
                 <form action={takeOverAction}>
                   <input type="hidden" name="id" value={conv.id} />
-                  <button className={btnPrimary}>Nhận cuộc chat</button>
+                  <button className={btnPrimary}>{t("Nhận cuộc chat")}</button>
                 </form>
               )}
               {(conv.mode === "human" || conv.handoffStatus === "open") && (
                 <form action={resolveAction}>
                   <input type="hidden" name="id" value={conv.id} />
-                  <button className={btnSecondary}>Đã xử lý · trả lại cho bot</button>
+                  <button className={btnSecondary}>{t("Đã xử lý · trả lại cho bot")}</button>
                 </form>
               )}
             </div>
-            <p className="mt-3 text-[12.5px] text-[var(--fg-muted)]">Tin bạn gửi hiện ngay trong widget của khách (khách đang mở cửa sổ chat). Bot tự dừng khi bạn trả lời.</p>
+            <p className="mt-3 text-[12.5px] text-[var(--fg-muted)]">{t("Tin bạn gửi hiện ngay trong widget của khách (khách đang mở cửa sổ chat). Bot tự dừng khi bạn trả lời.")}</p>
           </Card>
-          <Card title="Liên hệ khách để lại">
+          <Card title={t("Liên hệ khách để lại")}>
             {related.length === 0 ? (
-              <p className="text-[14px] text-[var(--fg-muted)]">Khách chưa để lại số điện thoại.</p>
+              <p className="text-[14px] text-[var(--fg-muted)]">{t("Khách chưa để lại số điện thoại.")}</p>
             ) : (
               <ul className="space-y-2 text-[14px]">
                 {related.map((l) => (

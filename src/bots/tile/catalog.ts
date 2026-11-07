@@ -1,5 +1,5 @@
 import type { NewTile, TileFilter, TileRepos } from "./repository";
-import { MAX_DESCRIPTION_LENGTH, MAX_TILE_IMAGES, sizeLabel, type SurfaceKind, type Tile, type TileFinish } from "./domain/tile";
+import { MAX_DESCRIPTION_LENGTH, MAX_TILE_IMAGES, isSurfaceKind, sizeLabel, type SurfaceKind, type Tile, type TileFinish } from "./domain/tile";
 
 export interface TileSuggestionQuery {
   surface?: SurfaceKind;
@@ -64,7 +64,11 @@ export function makeTileCatalog(deps: { tiles: TileRepos["tiles"] }) {
   return {
     async suggest(tenantId: string, q: TileSuggestionQuery): Promise<TileCard[]> {
       const filter: TileFilter = { sellableOnly: true, usage: q.surface, maxPricePerM2: q.maxPricePerM2 };
-      const all = await tiles.list(tenantId, filter);
+      let all = await tiles.list(tenantId, filter);
+      // Shop chưa gắn nhãn "outdoor": dùng tạm gạch lát sàn bề mặt nhám/mờ (bỏ gạch bóng — trơn khi ướt).
+      if (q.surface === "outdoor" && all.length === 0) {
+        all = (await tiles.list(tenantId, { ...filter, usage: "floor" })).filter((t) => t.finish !== "glossy");
+      }
       const phrases = [q.style, q.color, q.query].filter((s): s is string => !!s).map(norm);
       const words = phrases.join(" ").split(/[\s,.;]+/).filter((w) => w.length > 1);
       const scored = all.map((t) => {
@@ -139,7 +143,7 @@ function parseRow(tenantId: string, r: Record<string, string>): NewTile {
     .split(/[;|,]/)
     .map((s) => s.trim())
     .filter(Boolean) as SurfaceKind[];
-  if (usage.some((u) => u !== "floor" && u !== "wall")) throw new Error("usage phải là floor, wall hoặc floor;wall");
+  if (usage.some((u) => !isSurfaceKind(u))) throw new Error("usage phải là floor, wall, outdoor, roof (nhiều giá trị cách nhau bởi ;)");
   return {
     tenantId,
     sku,

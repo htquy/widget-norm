@@ -1,4 +1,5 @@
 import { DomainError } from "./errors";
+import { CLOSED_WORD, WEEKDAYS, type ChatLang } from "./chat-text";
 
 /** Giờ Việt Nam cố định UTC+7 (không có giờ mùa hè) → tính khung giờ thuần, không cần thư viện múi giờ. */
 export const TZ_OFFSET_MIN = 7 * 60;
@@ -169,11 +170,13 @@ export function isOpenAt(hours: WeeklyHours, closedDates: string[], now: Date): 
   return t >= toMinutes(day.open) && t < toMinutes(day.close);
 }
 
-export function describeHours(hours: WeeklyHours): string {
+export function describeHours(hours: WeeklyHours, lang: ChatLang = "vi"): string {
+  const labels = WEEKDAYS[lang];
+  const closed = CLOSED_WORD[lang];
   return (Object.keys(WEEKDAY_LABELS) as unknown as Weekday[])
     .map((i) => Number(i) as Weekday)
     .sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7))
-    .map((i) => `${WEEKDAY_LABELS[i]}: ${hours[i] ? `${hours[i]!.open}–${hours[i]!.close}` : "nghỉ"}`)
+    .map((i) => `${labels[i]}: ${hours[i] ? `${hours[i]!.open}–${hours[i]!.close}` : closed}`)
     .join("; ");
 }
 
