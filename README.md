@@ -9,6 +9,8 @@ Web tập trung các **chatbot AI cho cửa hàng** để thương mại hoá: k
 
 Cả hai dùng chung: tầng quyết định **jev** + LLM theo độ khó, chống trả lời bịa, **đặt lịch**, **chuyển nhân viên + live chat**, **phân tích nhu cầu** khách, tuỳ biến giao diện widget, lead/CRM, tài khoản + gói cước. Sắp có thêm bot khác — xem [docs/PLAN.md](docs/PLAN.md) mục 5.
 
+> **Mới vào dự án (người hoặc AI agent)?** Đọc [docs/DEVELOPER-GUIDE.md](docs/DEVELOPER-GUIDE.md): mục tiêu, kiến trúc, model AI/3D, cài đặt, hai ngôn ngữ, cách mở rộng và quy tắc cho agent. Việc còn dở ở [docs/PLAN.md](docs/PLAN.md) mục 3.
+
 ## Chạy thử
 
 ```bash
