@@ -47,6 +47,7 @@ export function makeTenants(deps: {
       const s = tenant.settings;
       return {
         kind: tenant.kind,
+        language: s.language ?? "vi",
         shopName: s.shopName,
         greeting: s.greeting,
         phone: s.phone,
@@ -101,7 +102,7 @@ export function makeTenants(deps: {
         slug: await uniqueSlug(name),
         name,
         settings: normalizeSettings({
-          ...defaultSettings(name),
+          ...defaultSettings(name, overrides.language ?? "vi"),
           ...overrides,
           shopName: name,
         }),

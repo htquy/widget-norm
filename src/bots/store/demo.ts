@@ -1,3 +1,5 @@
+import type { PricingRule } from "./estimate";
+
 /** Fictional multi-category retail data; only used by the demo account. */
 export const DEMO_PRODUCTS: {
   sku: string;
@@ -7,7 +9,44 @@ export const DEMO_PRODUCTS: {
   tags: string[];
   desc: string;
   inStock?: boolean;
+  pricing?: PricingRule;
 }[] = [
+  {
+    sku: "AVI-SON",
+    name: "Sơn nội thất Mịn Màng 18L",
+    category: "Vật liệu",
+    price: 1_650_000,
+    tags: ["sơn", "nội thất", "sơn tường"],
+    desc: "Sơn nội thất lau chùi được, thùng 18 lít, 1 thùng phủ khoảng 120 m² một lớp. Nên sơn 2 lớp hoàn thiện sau 1 lớp lót. Có dịch vụ thi công trọn gói.",
+    pricing: { model: "coverage", unit: "thùng", coveragePerUnit: 120, coats: 2, wastePercent: 5, addons: [{ label: "Công thi công", per: "area", price: 25_000 }] },
+  },
+  {
+    sku: "AVI-SAN",
+    name: "Sàn gỗ công nghiệp Oak 12mm",
+    category: "Vật liệu",
+    price: 289_000,
+    tags: ["sàn gỗ", "lát sàn", "gỗ công nghiệp"],
+    desc: "Sàn gỗ công nghiệp dày 12mm, chống ẩm, bề mặt vân gỗ sồi. Giá theo m². Có thi công kèm phào và len chân tường.",
+    pricing: { model: "per_area", wastePercent: 7, minAreaM2: 10, addons: [{ label: "Công thi công + phụ kiện", per: "area", price: 45_000 }] },
+  },
+  {
+    sku: "AVI-REM",
+    name: "Rèm vải Linen cản sáng",
+    category: "Nội thất",
+    price: 180_000,
+    tags: ["rèm", "rèm cửa", "linen"],
+    desc: "Vải linen cản sáng 90%, khổ 2,8m. Giá theo mét dài vải. Rèm nhún gấp 2 lần chiều rộng cửa. Bao gồm may và ray treo.",
+    pricing: { model: "per_length", foldFactor: 2, wastePercent: 5, addons: [{ label: "Công may và phụ kiện", per: "quantity", price: 40_000 }] },
+  },
+  {
+    sku: "AVI-DP",
+    name: "Áo đồng phục Polo Corp",
+    category: "Đồng phục",
+    price: 150_000,
+    tags: ["đồng phục", "áo polo", "in logo"],
+    desc: "Polo cá sấu, may theo size tập thể, thêu logo ngực. Giá theo số lượng, càng nhiều càng rẻ. Giao trong 10 ngày.",
+    pricing: { model: "per_unit", unit: "áo", tiers: [{ minQty: 20, price: 135_000 }, { minQty: 50, price: 120_000 }, { minQty: 100, price: 105_000 }], addons: [{ label: "Thêu logo", per: "quantity", price: 15_000 }] },
+  },
   {
     sku: "AVI-BGN",
     name: "Bình giữ nhiệt Everyday 500ml",

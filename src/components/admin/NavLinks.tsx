@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/lib/i18n/client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -85,20 +86,21 @@ export function NavLinks({
   openHandoffs: number;
   botItems: { href: string; label: string; icon: string }[];
 }) {
+  const t = useT();
   const path = usePathname();
   const LINKS: NavItem[] = [
     ...COMMON_TOP,
     ...botItems,
     {
       href: "/admin/services",
-      label: "Dịch vụ đặt lịch",
+      label: t("Dịch vụ đặt lịch"),
       icon: "M12 8v4l3 3M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0z",
     },
     ...COMMON_BOTTOM,
   ];
   return (
     <nav
-      aria-label="Điều hướng quản trị"
+      aria-label={t("Điều hướng quản trị")}
       className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col"
     >
       {LINKS.map((l) => {
@@ -114,7 +116,7 @@ export function NavLinks({
             <span className={active ? "text-white" : "text-neutral-500"}>
               <I d={l.icon} />
             </span>
-            <span className="flex-1">{l.label}</span>
+            <span className="flex-1">{t(l.label)}</span>
             {l.badge && openHandoffs > 0 && (
               <span
                 className="rounded-full bg-red-600 px-1.5 text-[12px] font-semibold text-white"

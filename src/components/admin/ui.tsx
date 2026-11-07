@@ -40,22 +40,7 @@ export function Empty({ children }: { children: React.ReactNode }) {
   return <p className="rounded-lg bg-[var(--surface-2)] px-4 py-6 text-center text-[14px] text-[var(--fg-muted)]">{children}</p>;
 }
 
-export function RangeTabs({ days, base, extra = "" }: { days: number; base: string; extra?: string }) {
-  return (
-    <nav aria-label="Khoảng thời gian" className="flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5 text-[13px]">
-      {[7, 30, 90].map((d) => (
-        <Link
-          key={d}
-          href={`${base}?days=${d}${extra}`}
-          aria-current={d === days ? "page" : undefined}
-          className={`flex min-h-9 items-center rounded-md px-3 ${d === days ? "bg-[var(--fg)] text-white" : "text-[var(--fg-muted)] hover:text-[var(--fg)]"}`}
-        >
-          {d} ngày
-        </Link>
-      ))}
-    </nav>
-  );
-}
+export { RangeTabs } from "./RangeTabs";
 
 export function parseDays(v: string | undefined): number {
   const n = Number(v);
@@ -93,7 +78,7 @@ export const LEAD_TONE: Record<string, string> = { new: "blue", contacted: "ambe
 export const BOOKING_TONE: Record<string, string> = { pending: "amber", confirmed: "blue", done: "green", cancelled: "gray", no_show: "red" };
 
 export const fieldCls = "w-full min-h-10 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-[14px] text-[var(--fg)] placeholder:text-neutral-400 focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20";
-export const btnPrimary = "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[var(--fg)] px-4 text-[14px] font-medium text-white transition hover:bg-neutral-700 disabled:opacity-60";
+export const btnPrimary = "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-4 text-[14px] font-medium text-[var(--accent-fg)] shadow-xs transition hover:bg-brand-700 disabled:opacity-60";
 export const btnSecondary = "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-white px-4 text-[14px] font-medium text-[var(--fg)] transition hover:bg-[var(--surface-2)] disabled:opacity-60";
 
 export function Field({ label, hint, children, className = "" }: { label: string; hint?: string; children: React.ReactNode; className?: string }) {

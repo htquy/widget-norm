@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/lib/i18n/client";
 import { useActionState } from "react";
 import { updateLeadAction } from "@/app/admin/actions";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@/domain/lead";
@@ -7,30 +8,31 @@ import { submitWith } from "./form";
 import { Field, btnPrimary, fieldCls } from "./ui";
 
 export function LeadEditForm({ lead }: { lead: { id: string; status: LeadStatus; note: string; wonValue: number | null } }) {
+  const t = useT();
   const [state, action, pending] = useActionState(updateLeadAction, undefined);
   return (
     <form onSubmit={submitWith(action)} className="space-y-3">
       <input type="hidden" name="id" value={lead.id} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Trạng thái">
+        <Field label={t("Trạng thái")}>
           <select name="status" defaultValue={lead.status} className={fieldCls}>
             {LEAD_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {LEAD_STATUS_LABELS[s]}
+                {t(LEAD_STATUS_LABELS[s])}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Giá trị đơn khi chốt (VND)">
+        <Field label={t("Giá trị đơn khi chốt (VND)")}>
           <input name="wonValue" inputMode="numeric" defaultValue={lead.wonValue ?? ""} className={fieldCls} />
         </Field>
       </div>
-      <Field label="Ghi chú">
+      <Field label={t("Ghi chú")}>
         <textarea name="note" rows={5} defaultValue={lead.note} className={fieldCls} />
       </Field>
       <div className="flex items-center gap-3">
         <button disabled={pending} className={btnPrimary}>
-          {pending ? "Đang lưu…" : "Lưu"}
+          {pending ? t("Đang lưu…") : t("Lưu")}
         </button>
         <Status state={state} />
       </div>

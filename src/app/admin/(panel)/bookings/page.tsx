@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n/server";
 import Link from "next/link";
 import { BOOKING_STATUSES, BOOKING_STATUS_LABELS, addDays, atLocal, localDate, type BookingStatus } from "@/domain/booking";
 import { requireSession } from "@/infrastructure/auth/session";
@@ -16,6 +17,7 @@ const NEXT: Record<BookingStatus, BookingStatus[]> = {
 const ACTION_TEXT: Record<BookingStatus, string> = { pending: "Chờ", confirmed: "Xác nhận", done: "Đã phục vụ", cancelled: "Huỷ", no_show: "Không đến" };
 
 export default async function BookingsPage({ searchParams }: { searchParams: Promise<{ from?: string; days?: string; status?: string }> }) {
+  const { t } = await getT();
   const s = await requireSession();
   const sp = await searchParams;
   const today = localDate(new Date());
@@ -38,21 +40,21 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <PageHeader
-        title="Lịch hẹn"
+        title={t("Lịch hẹn")}
         subtitle={`${bookings.length} lịch từ ${from} trong ${span} ngày`}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link href={nav(addDays(from, -span))} className={btnSecondary} aria-label="Khoảng trước">
+            <Link href={nav(addDays(from, -span))} className={btnSecondary} aria-label={t("Khoảng trước")}>
               ←
             </Link>
             <Link href={nav(today)} className={btnSecondary}>
-              Hôm nay
+              {t("Hôm nay")}
             </Link>
-            <Link href={nav(addDays(from, span))} className={btnSecondary} aria-label="Khoảng sau">
+            <Link href={nav(addDays(from, span))} className={btnSecondary} aria-label={t("Khoảng sau")}>
               →
             </Link>
             <a href={`/admin/export/bookings?from=${from}&days=${span}`} className={btnSecondary}>
-              Xuất CSV
+              {t("Xuất CSV")}
             </a>
           </div>
         }
@@ -60,18 +62,18 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
       <form className="mb-4 flex flex-wrap items-end gap-2">
         <input type="hidden" name="from" value={from} />
         <label className="text-[13px]">
-          <span className="mb-1 block text-[var(--fg-muted)]">Trạng thái</span>
+          <span className="mb-1 block text-[var(--fg-muted)]">{t("Trạng thái")}</span>
           <select name="status" defaultValue={status ?? ""} className={`${fieldCls} w-auto`}>
-            <option value="">Tất cả</option>
+            <option value="">{t("Tất cả")}</option>
             {BOOKING_STATUSES.map((st) => (
               <option key={st} value={st}>
-                {BOOKING_STATUS_LABELS[st]}
+                {t(BOOKING_STATUS_LABELS[st])}
               </option>
             ))}
           </select>
         </label>
         <label className="text-[13px]">
-          <span className="mb-1 block text-[var(--fg-muted)]">Số ngày</span>
+          <span className="mb-1 block text-[var(--fg-muted)]">{t("Số ngày")}</span>
           <select name="days" defaultValue={span} className={`${fieldCls} w-auto`}>
             {[7, 14, 30].map((d) => (
               <option key={d} value={d}>
@@ -80,20 +82,20 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
             ))}
           </select>
         </label>
-        <button className={btnSecondary}>Lọc</button>
+        <button className={btnSecondary}>{t("Lọc")}</button>
         <Link href="/admin/services" className="ml-auto self-center text-[13px] underline">
-          Quản lý dịch vụ đặt lịch
+          {t("Quản lý dịch vụ đặt lịch")}
         </Link>
       </form>
 
       {bookings.length === 0 ? (
-        <Empty>Không có lịch hẹn nào trong khoảng này.</Empty>
+        <Empty>{t("Không có lịch hẹn nào trong khoảng này.")}</Empty>
       ) : (
         <div className="space-y-4">
           {[...byDay.entries()].map(([day, list]) => (
             <section key={day} className="overflow-hidden rounded-xl border border-[var(--border)] bg-white">
               <h2 className="border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-2 text-[14px] font-semibold capitalize">
-                {fmtDay(atLocal(day, "12:00"))} {day === today && <Badge tone="blue">Hôm nay</Badge>}
+                {fmtDay(atLocal(day, "12:00"))} {day === today && <Badge tone="blue">{t("Hôm nay")}</Badge>}
               </h2>
               <ul className="divide-y divide-[var(--border)]">
                 {list.map((b) => (
@@ -109,7 +111,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                         </a>
                       </p>
                       <p className="text-[13px] text-[var(--fg-muted)]">
-                        {svc.get(b.serviceId)?.name ?? "(dịch vụ đã xoá)"}
+                        {svc.get(b.serviceId)?.name ?? t("(dịch vụ đã xoá)")}
                         {b.note && ` · ${b.note}`}
                         {b.conversationId && !b.conversationId.startsWith("demo-") && (
                           <>
@@ -121,14 +123,14 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                         )}
                       </p>
                     </div>
-                    <Badge tone={BOOKING_TONE[b.status]}>{BOOKING_STATUS_LABELS[b.status]}</Badge>
+                    <Badge tone={BOOKING_TONE[b.status]}>{t(BOOKING_STATUS_LABELS[b.status])}</Badge>
                     <div className="flex flex-wrap gap-1.5">
                       {NEXT[b.status].map((st) => (
                         <form key={st} action={setBookingStatusAction}>
                           <input type="hidden" name="id" value={b.id} />
                           <input type="hidden" name="status" value={st} />
-                          <button className={`min-h-9 rounded-lg border px-3 text-[13px] font-medium ${st === "confirmed" || st === "done" ? "border-transparent bg-[var(--fg)] text-white" : "border-[var(--border)] hover:bg-[var(--surface-2)]"}`}>
-                            {ACTION_TEXT[st]}
+                          <button className={`min-h-9 rounded-lg border px-3 text-[13px] font-medium ${st === "confirmed" || st === "done" ? "border-transparent bg-[var(--accent)] text-white" : "border-[var(--border)] hover:bg-[var(--surface-2)]"}`}>
+                            {t(ACTION_TEXT[st])}
                           </button>
                         </form>
                       ))}

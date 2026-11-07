@@ -8,7 +8,7 @@ import { DomainError } from "@/domain/errors";
 import { requireSession } from "@/infrastructure/auth/session";
 import { app } from "@/infrastructure/container";
 import { LAYOUT_PATTERNS } from "../domain/quote";
-import { MAX_DESCRIPTION_LENGTH, MAX_TILE_IMAGES } from "../domain/tile";
+import { MAX_DESCRIPTION_LENGTH, MAX_TILE_IMAGES, isSurfaceKind } from "../domain/tile";
 import { DEFAULT_TILE_SETTINGS } from "../repository";
 
 export type ActionState = { ok?: boolean; error?: string; message?: string } | undefined;
@@ -63,8 +63,8 @@ export async function saveTileAction(_: ActionState, form: FormData): Promise<Ac
   try {
     const { s, c } = await tileTenant();
     const data = tileSchema.parse(Object.fromEntries(form));
-    const usage = form.getAll("usage").map(String).filter((u): u is "floor" | "wall" => u === "floor" || u === "wall");
-    if (usage.length === 0) throw new DomainError("NO_USAGE", "Chọn ít nhất một công dụng (lát sàn / ốp tường)");
+    const usage = form.getAll("usage").map(String).filter(isSurfaceKind);
+    if (usage.length === 0) throw new DomainError("NO_USAGE", "Chọn ít nhất một công dụng (lát sàn / ốp tường / sân vườn / lợp mái)");
     const active = form.get("active") === "on";
     const textureUrl = await uploadImage(s.tenantId, "textures", data.sku, form.get("texture"), "Ảnh vân gạch");
 

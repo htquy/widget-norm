@@ -1,7 +1,7 @@
 import { and, eq, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import type { DB } from "@/infrastructure/db/client";
 import { quotes, tileSettings, tiles } from "@/infrastructure/db/schema";
-import type { QuoteOptions, QuotePricing, QuoteResult, SurfaceInput } from "./domain/quote";
+import { DEFAULT_WASTE_PERCENT, type QuoteOptions, type QuotePricing, type QuoteResult, type SurfaceInput } from "./domain/quote";
 import { PLACEHOLDER_TEXTURE, type SurfaceKind, type Tile, type TileFinish } from "./domain/tile";
 
 /** Repository schema `tile` — chỉ module tile dùng */
@@ -31,7 +31,7 @@ export interface TileSettings {
 }
 
 export const DEFAULT_TILE_SETTINGS: TileSettings = {
-  pricing: { wastePercent: { straight: 5, half_offset: 7, third_offset: 7, herringbone: 12 }, adhesiveKgPerM2: 5, adhesiveBagKg: 25, adhesiveBagPrice: 180_000, groutPricePerKg: 45_000 },
+  pricing: { wastePercent: { ...DEFAULT_WASTE_PERCENT }, adhesiveKgPerM2: 5, adhesiveBagKg: 25, adhesiveBagPrice: 180_000, groutPricePerKg: 45_000 },
   abVisualizerPercent: 100,
 };
 

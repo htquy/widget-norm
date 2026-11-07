@@ -38,6 +38,12 @@ import { makeAuth, makeTenants } from "@/application/use-cases/tenants";
 import { makeCatalog } from "@/bots/store/catalog";
 import { makeStoreModule } from "@/bots/store/module";
 import { productRepo } from "@/bots/store/repository";
+import { makeFurnitureCatalog } from "@/bots/furniture/catalog";
+import { makeFurnitureModule } from "@/bots/furniture/module";
+import { furnitureRepo } from "@/bots/furniture/repository";
+import { makeCourseCatalog } from "@/bots/education/catalog";
+import { makeEducationModule } from "@/bots/education/module";
+import { courseRepo } from "@/bots/education/repository";
 import { makeTileCatalog } from "@/bots/tile/catalog";
 import { makeTileModule } from "@/bots/tile/module";
 import { makeQuotes } from "@/bots/tile/quotes";
@@ -163,10 +169,34 @@ const tileShop: Tenant = {
   createdAt: new Date(),
 };
 
+/** Bot nội thất của cùng tài khoản acc-1 (schema furniture) */
+const furnitureShop: Tenant = {
+  id: "tenant-f",
+  accountId: "acc-1",
+  kind: "furniture",
+  status: "active",
+  slug: "noi-that-t",
+  name: "Nội thất T",
+  settings: defaultSettings("Nội thất T"),
+  createdAt: new Date(),
+};
+
+/** Bot đào tạo của cùng tài khoản acc-1 (schema education) */
+const eduShop: Tenant = {
+  id: "tenant-e",
+  accountId: "acc-1",
+  kind: "education",
+  status: "active",
+  slug: "trung-tam-t",
+  name: "Trung tâm T",
+  settings: defaultSettings("Trung tâm T"),
+  createdAt: new Date(),
+};
+
 beforeAll(async () => {
   db = drizzle(new PGlite(), { schema }) as unknown as DB;
   for (const stmt of schema.DDL) await db.execute(sql.raw(stmt));
-  for (const t of [shopA, shopB, tileShop])
+  for (const t of [shopA, shopB, tileShop, eduShop, furnitureShop])
     await db
       .insert(schema.tenants)
       .values({
@@ -245,6 +275,10 @@ function setup(llm: LlmGateway, jev: DecisionGateway | null) {
     put: async (k: string) => `/files/${k}`,
     get: async () => null,
   };
+  const furnitureItems = furnitureRepo(db);
+  const furnitureCatalog = makeFurnitureCatalog({ items: furnitureItems });
+  const courses = courseRepo(db);
+  const courseCatalog = makeCourseCatalog({ courses });
   const core = makeStoreModule({ catalog, products });
   const modules: Record<BotKind, BotModule> = {
     store: core,
@@ -252,6 +286,8 @@ function setup(llm: LlmGateway, jev: DecisionGateway | null) {
       core,
       makeTileModule({ repos: tiles, catalog: tileCatalog, quotes, files }),
     ),
+    education: composeWithAvi(core, makeEducationModule({ catalog: courseCatalog, courses })),
+    furniture: composeWithAvi(core, makeFurnitureModule({ catalog: furnitureCatalog, items: furnitureItems, files })),
   };
   const leads = makeLeads({
     leads: leadRepo(db),
@@ -412,6 +448,21 @@ describe("LLM + dữ liệu", () => {
     expect((r.products as { id: string }[]).map((p) => p.id)).toEqual(["a-p1"]);
   });
 
+  it("calculate_estimate: bot báo giá theo công thức của sản phẩm, số tiền qua được guard", async () => {
+    await db.insert(schema.products).values({
+      id: "a-paint", tenantId: shopA.id, sku: "SON-18L", name: "Sơn nội thất 18L", category: "Vật liệu", price: 1_650_000, description: "Sơn", tags: ["sơn"],
+      pricing: { model: "coverage", unit: "thùng", coveragePerUnit: 120, coats: 2, wastePercent: 5, addons: [{ label: "Công thi công", per: "area", price: 25_000 }] },
+    }).onConflictDoNothing();
+    const llm = new FakeLlm(async ({ tools }) => {
+      const e = (await tool(tools, "calculate_estimate").run({ productId: "a-paint", areaM2: 50 })) as { total: string; lines: string[] };
+      return `Tổng ${e.total}`;
+    });
+    const { chat } = setup(llm, new FakeJev({}));
+    const r = await send(chat, shopA, "visitor-est-1", "sơn 50m2 hết bao nhiêu");
+    expect(r.reply!.text).toContain("2.900.000");
+    expect(r.reply!.action).toBeUndefined();
+  });
+
   it("LLM gọi request_human → thẻ liên hệ nhân viên", async () => {
     const llm = new FakeLlm(async ({ tools }) => {
       await tool(tools, "request_human").run({ reason: "not_in_data" });
@@ -537,6 +588,103 @@ describe("báo cáo nhu cầu", () => {
   });
 });
 
+describe("bot đào tạo", () => {
+  it("tư vấn khoá, lịch lớp và học phí do tool tính; số tiền qua được guard; không lộ khoá của shop khác", async () => {
+    const { modules } = setup(new FakeLlm(async () => ""), new FakeJev({}));
+    const ids = await modules.education.seedDemo(eduShop.id);
+    expect(ids).toHaveLength(6);
+    const llm = new FakeLlm(async ({ tools }) => {
+      const found = (await tool(tools, "find_courses").run({ query: "IELTS mất gốc" })) as { courseId: string; name: string }[];
+      const f = found.find((c) => c.name === "IELTS Foundation")!;
+      const classes = (await tool(tools, "list_classes").run({ courseId: f.courseId })) as { classes: string[] };
+      const fee = (await tool(tools, "calculate_tuition").run({ courseId: f.courseId, people: 3 })) as { total: string };
+      return `${f.name}: ${classes.classes.length} lớp, 3 bạn đăng ký tổng ${fee.total}`;
+    });
+    const { chat } = setup(llm, new FakeJev({}));
+    const r = await send(chat, eduShop, "visitor-edu-1", "mất gốc muốn học IELTS, đi 3 bạn");
+    expect(r.reply!.text).toContain("IELTS Foundation: 2 lớp");
+    expect(r.reply!.text).toContain("25.920.000");
+    expect(r.reply!.action).toBeUndefined();
+    expect((r.products as { sku: string }[]).map((p) => p.sku)).toContain("IELTS-F");
+
+    const other = new FakeLlm(async ({ tools }) => JSON.stringify(await tool(tools, "find_courses").run({ query: "IELTS" })));
+    const { chat: chatB } = setup(other, new FakeJev({}));
+    const rb = await send(chatB, shopA, "visitor-edu-2", "IELTS").catch((e) => e);
+    expect(String(rb instanceof Error ? rb.message : rb.reply?.text)).not.toContain("IELTS Foundation");
+  });
+
+  it("plan_pathway: lộ trình IELTS bằng khoá thật, thẻ lộ trình cho widget", async () => {
+    const { modules } = setup(new FakeLlm(async () => ""), new FakeJev({}));
+    await modules.education.seedDemo(eduShop.id);
+    const llm = new FakeLlm(async ({ tools }) => {
+      const r = (await tool(tools, "plan_pathway").run({ currentBand: 4.5, targetBand: 6.5 })) as { steps: string[]; totalTuition: string };
+      return `${r.steps.length} khoá, ${r.totalTuition}`;
+    });
+    const { chat } = setup(llm, new FakeJev({}));
+    const r = await send(chat, eduShop, "visitor-edu-9", "em 4.5 muốn 6.5");
+    expect(r.reply!.text).toContain("2 khoá");
+    expect(r.reply!.text).toContain("26.000.000");
+    const p = (r.extras as { pathway?: { steps: { code: string }[] } }).pathway;
+    expect(p?.steps.map((x) => x.code)).toEqual(["IELTS-PRE", "IELTS-65"]);
+  });
+
+  it("schema riêng education; hết hạn mức LLM → bot luật vẫn gợi ý khoá", async () => {
+    const rows = (await db.execute(sql.raw("SELECT table_schema AS s FROM information_schema.tables WHERE table_name = 'courses'"))) as unknown as { rows: { s: string }[] };
+    expect(rows.rows.map((r) => r.s)).toEqual(["education"]);
+    const llm = new FakeLlm(async () => {
+      throw new LlmUnavailableError("fake", "rate_limited", "429");
+    });
+    const { chat } = setup(llm, new FakeJev({ "có lớp ielts không": { label: "product_query" } }));
+    const r = await send(chat, eduShop, "visitor-edu-3", "có lớp ielts không");
+    expect(r.reply!.text).toMatch(/IELTS/);
+  });
+});
+
+describe("bot nội thất", () => {
+  it("tool kiểm tra vừa phòng và tạm tính do code tính; số tiền qua guard", async () => {
+    const { modules } = setup(new FakeLlm(async () => ""), new FakeJev({}));
+    await modules.furniture.seedDemo(furnitureShop.id);
+    const llm = new FakeLlm(async ({ tools }) => {
+      const found = (await tool(tools, "find_furniture").run({ query: "sofa", spaceWidthM: 3, spaceDepthM: 2.5 })) as { itemId: string; name: string }[];
+      const names = found.map((f) => f.name);
+      const corner = (await tool(tools, "find_furniture").run({ query: "sofa góc" })) as { itemId: string; name: string }[];
+      const fit = (await tool(tools, "check_fit").run({ itemId: corner[0].itemId, spaceWidthM: 3, spaceDepthM: 2.5 })) as { fits: boolean; leftover: string };
+      const order = (await tool(tools, "calculate_order").run({ items: [{ itemId: corner[0].itemId, quantity: 1 }, { itemId: found[0].itemId, quantity: 1 }] })) as { subtotal: string };
+      return `Vừa ${names.length} mẫu; sofa góc ${fit.fits ? "vừa" : "không vừa"} (${fit.leftover}); tạm tính ${order.subtotal}`;
+    });
+    const { chat } = setup(llm, new FakeJev({}));
+    const r = await send(chat, furnitureShop, "visitor-furn-1", "phòng 3x2,5m mua sofa nào");
+    expect(r.reply!.text).toContain("sofa góc vừa");
+    // Sofa góc Milan 21.500.000 + sofa rẻ nhất vừa 3×2,5 m (Kyoto 10.400.000)
+    expect(r.reply!.text).toContain("31.900.000");
+    expect(r.reply!.action).toBeUndefined();
+  });
+
+  it("design_room: trọn bộ theo phong cách + ngân sách, gửi thẻ phương án cho widget", async () => {
+    const llm = new FakeLlm(async ({ tools }) => {
+      const r = (await tool(tools, "design_room").run({ room: "living", style: "japandi", budget: 20_000_000, roomWidthM: 4, roomDepthM: 5 })) as { picks: string[]; subtotal: string };
+      return `Phương án: ${r.picks.join("; ")} — ${r.subtotal}`;
+    });
+    const { chat } = setup(llm, new FakeJev({}));
+    const r = await send(chat, furnitureShop, "visitor-furn-9", "thiết kế phòng khách japandi 20 triệu");
+    expect(r.reply!.text).toContain("Sofa văng 2 chỗ Kyoto");
+    const set = (r.extras as { roomSet?: { subtotal: number; picks: unknown[] } }).roomSet;
+    expect(set?.picks.length).toBeGreaterThanOrEqual(2);
+    expect(set!.subtotal).toBeLessThanOrEqual(20_000_000);
+  });
+
+  it("schema riêng furniture; hết hạn mức LLM → bot luật vẫn gợi ý", async () => {
+    const rows = (await db.execute(sql.raw("SELECT table_schema AS s FROM information_schema.tables WHERE table_name = 'items'"))) as unknown as { rows: { s: string }[] };
+    expect(rows.rows.map((r) => r.s)).toEqual(["furniture"]);
+    const llm = new FakeLlm(async () => {
+      throw new LlmUnavailableError("fake", "rate_limited", "429");
+    });
+    const { chat } = setup(llm, new FakeJev({ "tư vấn sofa phòng khách": { label: "product_query" } }));
+    const r = await send(chat, furnitureShop, "visitor-furn-2", "tư vấn sofa phòng khách");
+    expect(r.reply!.text).toMatch(/Sofa/);
+  });
+});
+
 describe("kiến trúc đa bot", () => {
   it("mỗi loại bot dùng schema riêng: bảng ở store / tile, không còn ở public", async () => {
     const rows = (await db.execute(
@@ -557,7 +705,7 @@ describe("kiến trúc đa bot", () => {
     const repo = tenantRepo(db);
     expect(
       (await repo.listByAccount("acc-1")).map((t) => t.kind).sort(),
-    ).toEqual(["store", "tile"]);
+    ).toEqual(["education", "furniture", "store", "tile"]);
     const counts = await repo.countByKind();
     expect(counts.tile).toBeGreaterThanOrEqual(1);
     expect(counts.store).toBeGreaterThanOrEqual(2);

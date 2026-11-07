@@ -1,8 +1,20 @@
-export type SurfaceKind = "floor" | "wall";
+export const SURFACE_KINDS = ["floor", "wall", "outdoor", "roof"] as const;
+/** floor = lát sàn trong nhà · wall = ốp tường (cả ốp bếp, phòng tắm) · outdoor = sân vườn/ngoài trời · roof = lợp mái (ngói) */
+export type SurfaceKind = (typeof SURFACE_KINDS)[number];
+export const isSurfaceKind = (s: unknown): s is SurfaceKind => (SURFACE_KINDS as readonly unknown[]).includes(s);
 export type TileFinish = "glossy" | "matte" | "textured";
 
 export const FINISH_LABELS: Record<TileFinish, string> = { glossy: "Bóng", matte: "Mờ", textured: "Nhám" };
-export const USAGE_LABELS: Record<SurfaceKind, string> = { floor: "Lát sàn", wall: "Ốp tường" };
+export const USAGE_LABELS: Record<SurfaceKind, string> = { floor: "Lát sàn", wall: "Ốp tường", outdoor: "Sân vườn / ngoài trời", roof: "Lợp mái (ngói)" };
+
+/**
+ * Ngói bán theo viên: kích thước nhập là PHẦN LỘ RA sau khi chồng mí (bề rộng hữu dụng × bước mè),
+ * số viên/thùng = 1. Khi đó báo giá ra số viên thay vì số thùng.
+ */
+export const isRoofTile = (t: Pick<Tile, "usage">) => t.usage.length > 0 && t.usage.every((u) => u === "roof");
+export const piecesPerM2 = (t: Pick<Tile, "widthMm" | "heightMm">) => 1_000_000 / (t.widthMm * t.heightMm);
+/** Đơn vị bán: ngói/gạch 1 viên mỗi "thùng" → "viên", còn lại → "thùng". */
+export const sellUnit = (t: Pick<Tile, "usage" | "piecesPerBox">) => (isRoofTile(t) || t.piecesPerBox === 1 ? "viên" : "thùng");
 
 export interface Tile {
   id: string;

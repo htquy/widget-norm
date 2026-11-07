@@ -12,18 +12,24 @@ void main() {
 }`;
 
 // Mỗi pixel ảnh → toạ độ thật trên mặt phẳng (mét) qua homography → xác định viên gạch, ron, rồi lấy mẫu vân.
+// Nhiều lớp (sàn, tường, mái...) được vẽ lần lượt: lớp sau dùng kết quả lớp trước làm nền (uBase).
 const FRAG = `#version 300 es
 precision highp float;
 in vec2 vUv;
 out vec4 outColor;
-uniform sampler2D uPhoto;
+uniform sampler2D uPhoto;   // ảnh gốc — lấy ánh sáng/bóng đổ
+uniform sampler2D uBase;    // nền hiện tại (ảnh gốc hoặc kết quả các lớp trước)
+uniform bool uBaseFlip;     // nền là framebuffer (gốc toạ độ dưới-trái) → lật dọc
 uniform sampler2D uTile;
 uniform sampler2D uMask;
 uniform mat3 uH;
 uniform vec2 uTileM;      // kích thước viên gạch (m)
 uniform float uGroutM;    // độ rộng ron (m)
 uniform vec3 uGroutColor;
-uniform int uPattern;     // 0 thẳng, 1 so le 1/2, 2 so le 1/3, 3 xương cá
+uniform int uPattern;     // 0 thẳng, 1 so le 1/2, 2 so le 1/3, 3 xương cá, 4 chéo 45°
+uniform bool uTexSwap;    // ảnh vân nằm ngang mà viên gạch đứng (hoặc ngược lại) → xoay vân 90°
+uniform int uRelief;      // 0 phẳng, 1 ngói sóng (chồng mí, đổ bóng hàng trên)
+uniform float uGloss;     // 0 mờ .. 1 bóng kiếng
 uniform float uMeanLum;   // độ sáng trung bình vùng được chọn
 uniform float uStrength;  // mức giữ bóng đổ 0..1
 uniform float uShadeLod;  // mức mip để lấy ánh sáng nền (càng cao càng mờ)
@@ -39,9 +45,17 @@ void main() {
   vec2 dpy = dFdy(p);
   float aa = max(length(dpx), length(dpy));   // mét trên mỗi pixel màn hình
 
-  vec4 photo = texture(uPhoto, vUv);
+  vec3 base = texture(uBase, uBaseFlip ? vec2(vUv.x, 1.0 - vUv.y) : vUv).rgb;
   float m = texture(uMask, vUv).r;
-  if (m < 0.01) { outColor = photo; return; }
+  if (m < 0.01) { outColor = vec4(base, 1.0); return; }
+
+  int pattern = uPattern;
+  if (pattern == 4) {
+    // Lát chéo: xoay mặt phẳng 45° rồi lát thẳng
+    const float c = 0.70710678;
+    p = vec2(c * p.x + c * p.y, -c * p.x + c * p.y);
+    pattern = 0;
+  }
 
   vec2 cell = uTileM + vec2(uGroutM);
   vec2 local;   // vị trí trong viên (m)
@@ -50,7 +64,7 @@ void main() {
   bool rotated = false;
   float groutCov = 0.0;   // độ phủ của ron tại pixel này (0..1, đã khử răng cưa)
 
-  if (uPattern == 3) {
+  if (pattern == 3) {
     // Xương cá với viên w × (n·w): mạng tịnh tiến (1,1) và (n,−n) theo đơn vị w.
     float w = min(uTileM.x, uTileM.y) + uGroutM;
     float n = max(2.0, floor(max(uTileM.x, uTileM.y) / min(uTileM.x, uTileM.y) + 0.5));
@@ -76,8 +90,8 @@ void main() {
   } else {
     float row = floor(p.y / cell.y);
     float shift = 0.0;
-    if (uPattern == 1) shift = mod(row, 2.0) * 0.5;
-    else if (uPattern == 2) shift = mod(row, 3.0) / 3.0;
+    if (pattern == 1) shift = mod(row, 2.0) * 0.5;
+    else if (pattern == 2) shift = mod(row, 3.0) / 3.0;
     vec2 pp = vec2(p.x + shift * cell.x, p.y);
     id = floor(pp / cell);
     local = pp - id * cell;
@@ -97,29 +111,48 @@ void main() {
   vec2 inner = size - vec2(uGroutM);
   vec2 uv = clamp(local / inner, 0.0, 1.0);
   if (rotated) uv = uv.yx;
-  // Lật ngẫu nhiên từng viên để vân không lặp lộ liễu
-  float r = hash(id);
-  if (r > 0.5) uv.x = 1.0 - uv.x;
-  if (fract(r * 7.0) > 0.5) uv.y = 1.0 - uv.y;
+  vec2 tuv = uTexSwap ? uv.yx : uv;
+  if (uRelief == 0) {
+    // Lật ngẫu nhiên từng viên để vân không lặp lộ liễu (ngói thì giữ chiều)
+    float r = hash(id);
+    if (r > 0.5) tuv.x = 1.0 - tuv.x;
+    if (fract(r * 7.0) > 0.5) tuv.y = 1.0 - tuv.y;
+  }
   float maxInner = max(inner.x, inner.y);
-  vec3 tileColor = textureGrad(uTile, uv, dpx / maxInner, dpy / maxInner).rgb;
-  // Mỗi viên lệch sáng nhẹ (như gạch thật, mỗi viên một sắc độ) + viền vát hơi tối
+  vec3 tileColor = textureGrad(uTile, tuv, dpx / maxInner, dpy / maxInner).rgb;
+  // Mỗi viên lệch sáng nhẹ (như gạch thật, mỗi viên một sắc độ)
   tileColor *= 0.955 + 0.09 * hash(id + vec2(3.7, 9.1));
-  float e = min(min(local.x, inner.x - local.x), min(local.y, inner.y - local.y)) / max(uGroutM * 2.0, 0.003);
-  tileColor *= mix(0.88, 1.0, clamp(e, 0.0, 1.0));
+
+  if (uRelief == 1) {
+    // Ngói: hàng trên chồng lên hàng dưới → phần đầu viên (phía nóc) chìm trong bóng, mép dưới sáng;
+    // thân viên cong (sóng) → sáng tối theo bề ngang.
+    float wave = 0.82 + 0.18 * cos(6.2831853 * (uv.x - 0.5));
+    float overlap = mix(0.55, 1.0, smoothstep(0.0, 0.22, uv.y));
+    float lip = 1.0 + 0.12 * smoothstep(0.86, 0.98, uv.y) - 0.35 * smoothstep(0.985, 1.0, uv.y);
+    tileColor *= wave * overlap * lip;
+  } else {
+    // Viền vát hơi tối
+    float e = min(min(local.x, inner.x - local.x), min(local.y, inner.y - local.y)) / max(uGroutM * 2.0, 0.003);
+    tileColor *= mix(0.88, 1.0, clamp(e, 0.0, 1.0));
+  }
   tileColor = mix(tileColor, uGroutColor, groutCov);
 
   // Giữ bóng đổ/ánh sáng của ảnh gốc — chỉ phần ánh sáng thay đổi chậm (mip thấp), KHÔNG giữ hoa văn
   // của sàn cũ (thảm, vân gỗ cũ...) nếu không sẽ lộ xuyên qua lớp gạch mới.
-  float shade = clamp(lum(textureLod(uPhoto, vUv, uShadeLod).rgb) / max(uMeanLum, 0.05), 0.4, 1.5);
+  float L = lum(textureLod(uPhoto, vUv, uShadeLod).rgb);
+  float shade = clamp(L / max(uMeanLum, 0.05), 0.4, 1.5);
   vec3 lit = tileColor * mix(1.0, shade, uStrength);
-  outColor = vec4(mix(photo.rgb, lit, m), 1.0);
+  // Gạch bóng: phản chiếu mảng sáng (cửa sổ, đèn) thành vệt loá mềm
+  // chỉ chỗ sáng hơn hẳn mức trung bình của vùng mới loá (tránh cả mảng tường sáng bị cháy trắng)
+  float glare = max(0.0, lum(textureLod(uPhoto, vUv, uShadeLod - 1.5).rgb) - max(uMeanLum * 1.2, 0.45)) * 1.4;
+  lit += vec3(uGloss * glare * (1.0 - groutCov) * 0.55);
+  outColor = vec4(mix(base, min(lit, vec3(1.0)), m), 1.0);
 }`;
 
 export interface RenderParams {
   /** 4 góc vùng (chuẩn hoá 0..1): trên-trái, trên-phải, dưới-phải, dưới-trái */
   quad: Pt[];
-  /** Kích thước thật của tứ giác (m): rộng (cạnh trên) × sâu */
+  /** Kích thước thật của tứ giác (m): rộng (cạnh trên) × sâu/cao */
   widthM: number;
   depthM: number;
   tileWidthMm: number;
@@ -127,23 +160,88 @@ export interface RenderParams {
   groutMm: number;
   groutColor: string;
   pattern: LayoutPattern;
+  /** "roof" = hiệu ứng ngói chồng mí */
+  relief?: "flat" | "roof";
+  /** 0 mờ .. 1 bóng */
+  gloss?: number;
   shadowStrength?: number;
 }
 
-const PATTERN_INDEX: Record<LayoutPattern, number> = { straight: 0, half_offset: 1, third_offset: 2, herringbone: 3 };
+export interface LayerRender {
+  id: string;
+  params: RenderParams;
+}
+
+const PATTERN_INDEX: Record<LayoutPattern, number> = { straight: 0, half_offset: 1, third_offset: 2, herringbone: 3, diagonal: 4 };
 
 function hexToRgb(hex: string): [number, number, number] {
   const v = parseInt(hex.replace("#", "").padEnd(6, "0").slice(0, 6), 16);
   return [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255];
 }
 
+interface LayerGpu {
+  mask: WebGLTexture;
+  tile: WebGLTexture;
+  hasTile: boolean;
+  /** >1 ảnh vân nằm ngang, <1 đứng */
+  texAspect: number;
+  meanLum: number;
+}
+
+/** Mặt nạ (canvas trắng/đen cùng kích thước ảnh) từ kết quả AI tách vùng. */
+export function maskFromSegmentation(seg: { mask: Uint8Array; width: number; height: number }, w: number, h: number): HTMLCanvasElement {
+  const img = new ImageData(seg.width, seg.height);
+  for (let i = 0; i < seg.mask.length; i++) {
+    const v = seg.mask[i];
+    img.data[i * 4] = v;
+    img.data[i * 4 + 1] = v;
+    img.data[i * 4 + 2] = v;
+    img.data[i * 4 + 3] = 255;
+  }
+  const tmp = document.createElement("canvas");
+  tmp.width = seg.width;
+  tmp.height = seg.height;
+  tmp.getContext("2d")!.putImageData(img, 0, 0);
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d")!;
+  ctx.filter = "blur(1.5px)";
+  ctx.drawImage(tmp, 0, 0, w, h);
+  return c;
+}
+
+/** Mặt nạ từ đa giác (toạ độ chuẩn hoá) — dùng cho phòng mẫu và khi chỉnh tay 4 góc. Lỗ (cửa sổ, đồ đạc) bị trừ ra. */
+export function maskFromPolygons(polys: Pt[][], w: number, h: number, holes: Pt[][] = []): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, w, h);
+  const path = (poly: Pt[]) => {
+    ctx.beginPath();
+    poly.forEach(([x, y], i) => (i ? ctx.lineTo(x * w, y * h) : ctx.moveTo(x * w, y * h)));
+    ctx.closePath();
+    ctx.fill();
+  };
+  ctx.fillStyle = "#fff";
+  polys.forEach(path);
+  ctx.fillStyle = "#000";
+  holes.forEach(path);
+  return c;
+}
+
 export class TileRenderer {
   private gl: WebGL2RenderingContext;
   private prog: WebGLProgram;
-  private tex: { photo: WebGLTexture; tile: WebGLTexture; mask: WebGLTexture };
-  private meanLum = 0.5;
+  private photoTex: WebGLTexture;
+  private emptyTex: WebGLTexture;
+  private fbo: { fb: WebGLFramebuffer; tex: WebGLTexture }[] = [];
+  private layers = new Map<string, LayerGpu>();
+  private photo: HTMLCanvasElement | ImageBitmap | null = null;
   private photoSize = { w: 1, h: 1 };
-  private hasMask = false;
+  private loc = new Map<string, WebGLUniformLocation | null>();
 
   constructor(private canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true, premultipliedAlpha: false });
@@ -156,7 +254,17 @@ export class TileRenderer {
     const loc = gl.getAttribLocation(this.prog, "aPos");
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    this.tex = { photo: gl.createTexture()!, tile: gl.createTexture()!, mask: gl.createTexture()! };
+    this.photoTex = gl.createTexture()!;
+    this.emptyTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, this.emptyTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  }
+
+  private u(name: string) {
+    if (!this.loc.has(name)) this.loc.set(name, this.gl.getUniformLocation(this.prog, name));
+    return this.loc.get(name)!;
   }
 
   private program(vs: string, fs: string) {
@@ -192,145 +300,162 @@ export class TileRenderer {
     }
   }
 
+  private makeFbos(w: number, h: number) {
+    const gl = this.gl;
+    for (const f of this.fbo) {
+      gl.deleteFramebuffer(f.fb);
+      gl.deleteTexture(f.tex);
+    }
+    this.fbo = [0, 1].map(() => {
+      const tex = gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      const fb = gl.createFramebuffer()!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      return { fb, tex };
+    });
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
   setPhoto(img: ImageBitmap | HTMLCanvasElement) {
     this.canvas.width = img.width;
     this.canvas.height = img.height;
+    this.photo = img;
     this.photoSize = { w: img.width, h: img.height };
-    this.upload(this.tex.photo, img, true);
-    this.clearMask();
+    this.upload(this.photoTex, img, true);
+    this.makeFbos(img.width, img.height);
+    for (const id of [...this.layers.keys()]) this.removeLayer(id);
+    this.render([]);
   }
 
-  /** Chưa có vùng nào: chỉ hiện ảnh gốc (mặt nạ rỗng) — để ảnh luôn hiện ngay khi khách chọn xong. */
-  clearMask() {
-    const gl = this.gl;
-    gl.bindTexture(gl.TEXTURE_2D, this.tex.mask);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    this.hasMask = true;
-    this.meanLum = 0.5;
-    this.drawPlain();
+  private layer(id: string): LayerGpu {
+    let l = this.layers.get(id);
+    if (!l) {
+      l = { mask: this.gl.createTexture()!, tile: this.gl.createTexture()!, hasTile: false, texAspect: 1, meanLum: 0.5 };
+      this.upload(l.mask, maskFromPolygons([], 2, 2), false);
+      this.layers.set(id, l);
+    }
+    return l;
   }
 
-  private drawPlain() {
-    const gl = this.gl;
-    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    gl.useProgram(this.prog);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.tex.photo);
-    gl.uniform1i(gl.getUniformLocation(this.prog, "uPhoto"), 0);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.tex.tile);
-    gl.uniform1i(gl.getUniformLocation(this.prog, "uTile"), 1);
-    gl.activeTexture(gl.TEXTURE2);
-    gl.bindTexture(gl.TEXTURE_2D, this.tex.mask);
-    gl.uniform1i(gl.getUniformLocation(this.prog, "uMask"), 2);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  removeLayer(id: string) {
+    const l = this.layers.get(id);
+    if (!l) return;
+    this.gl.deleteTexture(l.mask);
+    this.gl.deleteTexture(l.tile);
+    this.layers.delete(id);
   }
 
   /** Ảnh vân gạch (1 viên). Ảnh SVG được vẽ ra canvas để có mipmap. */
-  setTileTexture(img: HTMLImageElement | ImageBitmap | HTMLCanvasElement) {
+  setLayerTexture(id: string, img: HTMLImageElement | ImageBitmap | HTMLCanvasElement) {
     const c = document.createElement("canvas");
     const max = 1024;
     const scale = Math.min(1, max / Math.max(img.width, img.height));
     c.width = Math.max(2, Math.round(img.width * scale));
     c.height = Math.max(2, Math.round(img.height * scale));
     c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-    this.upload(this.tex.tile, c, true);
+    const l = this.layer(id);
+    this.upload(l.tile, c, true);
+    l.hasTile = true;
+    l.texAspect = img.width / img.height;
   }
 
-  /**
-   * Mặt nạ vùng phủ gạch. Nếu có mặt nạ SAM thì dùng (giao với tứ giác); nếu không, dùng chính tứ giác.
-   * Đồng thời tính độ sáng trung bình vùng để giữ bóng đổ.
-   */
-  setMask(photo: ImageBitmap | HTMLCanvasElement, quad: Pt[], sam: { mask: Uint8Array; width: number; height: number } | null) {
+  /** Mặt nạ vùng phủ gạch của lớp + độ sáng trung bình vùng đó (để giữ bóng đổ). */
+  setLayerMask(id: string, mask: HTMLCanvasElement) {
+    const l = this.layer(id);
+    this.upload(l.mask, mask, false);
+    if (!this.photo) return;
     const { w, h } = this.photoSize;
-    const c = document.createElement("canvas");
-    c.width = w;
-    c.height = h;
-    const ctx = c.getContext("2d", { willReadFrequently: true })!;
-    if (sam) {
-      const img = ctx.createImageData(sam.width, sam.height);
-      for (let i = 0; i < sam.mask.length; i++) {
-        const v = sam.mask[i];
-        img.data[i * 4] = v;
-        img.data[i * 4 + 1] = v;
-        img.data[i * 4 + 2] = v;
-        img.data[i * 4 + 3] = 255;
-      }
-      const tmp = document.createElement("canvas");
-      tmp.width = sam.width;
-      tmp.height = sam.height;
-      tmp.getContext("2d")!.putImageData(img, 0, 0);
-      ctx.filter = "blur(1.5px)";
-      ctx.drawImage(tmp, 0, 0, w, h);
-      ctx.filter = "none";
-    } else {
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = "#fff";
-      ctx.beginPath();
-      quad.forEach(([x, y], i) => (i ? ctx.lineTo(x * w, y * h) : ctx.moveTo(x * w, y * h)));
-      ctx.closePath();
-      ctx.fill();
-    }
-    this.hasMask = true;
-    this.upload(this.tex.mask, c, false);
-
-    // Độ sáng trung bình trong vùng
-    const pc = document.createElement("canvas");
-    const sw = 160, sh = Math.max(1, Math.round((160 * h) / w));
-    pc.width = sw;
-    pc.height = sh;
-    const pctx = pc.getContext("2d", { willReadFrequently: true })!;
-    pctx.drawImage(photo, 0, 0, sw, sh);
-    const pd = pctx.getImageData(0, 0, sw, sh).data;
-    const mctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
-    mctx.canvas.width = sw;
-    mctx.canvas.height = sh;
-    mctx.drawImage(c, 0, 0, sw, sh);
-    const md = mctx.getImageData(0, 0, sw, sh).data;
-    let sum = 0, n = 0;
+    const sw = 160,
+      sh = Math.max(1, Math.round((160 * h) / w));
+    const read = (src: CanvasImageSource) => {
+      const c = document.createElement("canvas");
+      c.width = sw;
+      c.height = sh;
+      const ctx = c.getContext("2d", { willReadFrequently: true })!;
+      ctx.drawImage(src, 0, 0, sw, sh);
+      return ctx.getImageData(0, 0, sw, sh).data;
+    };
+    const pd = read(this.photo),
+      md = read(mask);
+    let sum = 0,
+      n = 0;
     for (let i = 0; i < md.length; i += 4) {
       if (md[i] > 127) {
         sum += (0.299 * pd[i] + 0.587 * pd[i + 1] + 0.114 * pd[i + 2]) / 255;
         n++;
       }
     }
-    this.meanLum = n ? sum / n : 0.5;
+    l.meanLum = n ? sum / n : 0.5;
   }
 
-  render(p: RenderParams) {
-    if (!this.hasMask) return;
+  /** Vẽ các lớp theo thứ tự (lớp sau đè lớp trước). Không có lớp nào → hiện ảnh gốc. */
+  render(layers: LayerRender[]) {
+    if (!this.photo) return;
     const gl = this.gl;
-    // Tứ giác trên ảnh ↔ hình chữ nhật thật W × D (m)
-    const H = homography(p.quad, [
-      [0, 0],
-      [p.widthM, 0],
-      [p.widthM, p.depthM],
-      [0, p.depthM],
-    ]);
-    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    const ready = layers.filter((l) => this.layers.get(l.id)?.hasTile && l.params.widthM > 0 && l.params.depthM > 0);
     gl.useProgram(this.prog);
-    const u = (n: string) => gl.getUniformLocation(this.prog, n);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.tex.photo);
-    gl.uniform1i(u("uPhoto"), 0);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.tex.tile);
-    gl.uniform1i(u("uTile"), 1);
-    gl.activeTexture(gl.TEXTURE2);
-    gl.bindTexture(gl.TEXTURE_2D, this.tex.mask);
-    gl.uniform1i(u("uMask"), 2);
-    gl.uniformMatrix3fv(u("uH"), false, toGl(H));
-    gl.uniform2f(u("uTileM"), p.tileWidthMm / 1000, p.tileHeightMm / 1000);
-    gl.uniform1f(u("uGroutM"), p.groutMm / 1000);
-    gl.uniform3fv(u("uGroutColor"), hexToRgb(p.groutColor));
-    gl.uniform1i(u("uPattern"), PATTERN_INDEX[p.pattern]);
-    gl.uniform1f(u("uMeanLum"), this.meanLum);
-    gl.uniform1f(u("uStrength"), p.shadowStrength ?? 0.9);
-    gl.uniform1f(u("uShadeLod"), Math.max(3, Math.log2(Math.max(this.photoSize.w, this.photoSize.h) / 40)));
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindTexture(gl.TEXTURE_2D, this.photoTex);
+    gl.uniform1i(this.u("uPhoto"), 0);
+    gl.uniform1i(this.u("uBase"), 1);
+    gl.uniform1i(this.u("uTile"), 2);
+    gl.uniform1i(this.u("uMask"), 3);
+    gl.uniform1f(this.u("uShadeLod"), Math.max(3, Math.log2(Math.max(this.photoSize.w, this.photoSize.h) / 40)));
+
+    if (ready.length === 0) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, this.photoTex);
+      gl.uniform1i(this.u("uBaseFlip"), 0);
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, this.emptyTex);
+      gl.uniformMatrix3fv(this.u("uH"), false, toGl([1, 0, 0, 0, 1, 0, 0, 0, 1]));
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      return;
+    }
+
+    ready.forEach((layer, i) => {
+      const g = this.layers.get(layer.id)!;
+      const p = layer.params;
+      const last = i === ready.length - 1;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, last ? null : this.fbo[i % 2].fb);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, i === 0 ? this.photoTex : this.fbo[(i - 1) % 2].tex);
+      gl.uniform1i(this.u("uBaseFlip"), i === 0 ? 0 : 1);
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, g.tile);
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, g.mask);
+      // Tứ giác trên ảnh ↔ hình chữ nhật thật W × D (m)
+      const H = homography(p.quad, [
+        [0, 0],
+        [p.widthM, 0],
+        [p.widthM, p.depthM],
+        [0, p.depthM],
+      ]);
+      const roof = p.relief === "roof";
+      gl.uniformMatrix3fv(this.u("uH"), false, toGl(H));
+      gl.uniform2f(this.u("uTileM"), p.tileWidthMm / 1000, p.tileHeightMm / 1000);
+      gl.uniform1f(this.u("uGroutM"), roof ? 0 : p.groutMm / 1000);
+      gl.uniform3fv(this.u("uGroutColor"), hexToRgb(p.groutColor));
+      gl.uniform1i(this.u("uPattern"), PATTERN_INDEX[p.pattern] ?? 0);
+      gl.uniform1i(this.u("uRelief"), roof ? 1 : 0);
+      const tileAspect = p.tileWidthMm / p.tileHeightMm;
+      const swap = (g.texAspect > 1.15 && tileAspect < 0.87) || (g.texAspect < 0.87 && tileAspect > 1.15);
+      gl.uniform1i(this.u("uTexSwap"), swap ? 1 : 0);
+      gl.uniform1f(this.u("uGloss"), p.gloss ?? 0);
+      gl.uniform1f(this.u("uMeanLum"), g.meanLum);
+      gl.uniform1f(this.u("uStrength"), p.shadowStrength ?? 0.9);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    });
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
   toJpegBase64(quality = 0.85): string {

@@ -1,0 +1,70 @@
+/** Header, footer, đăng ký, danh mục chatbot, nút chung */
+export const chrome: Record<string, string> = {
+  "Bảng giá": "Pricing",
+  "Công nghệ": "Technology",
+  "Đăng nhập": "Sign in",
+  "Dùng thử miễn phí": "Start free trial",
+  "Điều hướng chính": "Main navigation",
+  "Mở menu": "Open menu",
+  "Hệ sinh thái Chatbot": "Chatbot ecosystem",
+  "Bắt đầu": "Get started",
+  "Kiến trúc đa schema độc lập · Bảo mật dữ liệu tuyệt đối": "Isolated multi-schema architecture · Strict data privacy",
+  "Tài khoản & Bắt đầu": "Account & get started",
+  "Bảng giá minh bạch": "Transparent pricing",
+  "Dùng thử 14 ngày miễn phí": "14-day free trial",
+  "Đăng nhập quản trị": "Admin sign in",
+  "Chuyển chế độ sáng / tối": "Toggle light / dark mode",
+  "Chuyển sang chế độ sáng": "Switch to light mode",
+  "Chuyển sang chế độ tối": "Switch to dark mode",
+  "Mới ra mắt": "New",
+  "Xem chi tiết": "View details",
+  "Xem bảng giá": "View pricing",
+  "Không cần thẻ thanh toán · dữ liệu mỗi cửa hàng tách biệt": "No card required · each shop's data is isolated",
+  "Dùng thử miễn phí 14 ngày": "Free 14-day trial",
+  "Plugin & Script nhúng": "Plugin & embed script",
+  "Đồng bộ đơn & kho": "Order & stock sync",
+  "Tích hợp 1 chạm": "One-tap integration",
+  "Tương thích 100% theme": "100% theme compatible",
+  "theme.liquid nhúng nhanh": "Quick theme.liquid embed",
+  "Mã chuyển đổi landing": "Landing conversion code",
+  "Website riêng": "Custom website",
+  "Danh mục chatbot": "Chatbot catalog",
+  "Chọn chatbot cho ngành của bạn": "Choose a chatbot for your industry",
+  "Mỗi chatbot có nghiệp vụ chữ ký riêng; tất cả dùng chung Jev Engine, đặt lịch thông minh, live chat và báo cáo chuyển đổi.":
+    "Each chatbot has its own signature tool; all share the Jev Engine, smart booking, live chat and conversion reports.",
+  "Chưa biết chọn chatbot nào?": "Not sure which chatbot to pick?",
+  "Dùng thử miễn phí trong 14 ngày — một tài khoản có thể kích hoạt nhiều chatbot.": "Try it free for 14 days — one account can activate several chatbots.",
+  "Chọn chatbot đúng ngành: bán hàng & đặt lịch, tư vấn gạch ốp lát, luyện thi IELTS và tư vấn nội thất.":
+    "Pick the chatbot for your industry: retail & booking, tile consulting, IELTS prep and furniture design.",
+  "Dùng thử 14 ngày": "14-day trial",
+  "Tạo chatbot đầu tiên của bạn": "Create your first chatbot",
+  "Chọn loại chatbot, đặt tên cửa hàng và vào thẳng trang quản trị. Bạn có thể thêm chatbot khác trong cùng tài khoản bất cứ lúc nào.":
+    "Choose a chatbot type, name your shop and go straight to the admin. You can add more chatbots to the same account at any time.",
+  "Không cần thẻ thanh toán": "No payment card needed",
+  "Đầy đủ tính năng gói Chuyên nghiệp trong 14 ngày": "Full Professional-plan features for 14 days",
+  "Nhập sản phẩm bằng file CSV mẫu hoặc thêm từng mục": "Import products from a CSV template or add them one by one",
+  "Một email. Cả không gian cửa hàng.": "One email. Your whole shop workspace.",
+  "Dùng tài khoản trung tâm để tạo chatbot, quản lý website và thanh toán. Sau đăng nhập, bạn chọn chatbot và đăng ký domain tại đây.":
+    "Use your central account to create chatbots, manage websites and pay. After signing in you choose a chatbot and register your domain here.",
+  "Tiếp tục với tài khoản email": "Continue with your email account",
+  "Không yêu cầu thẻ. Mỗi domain chỉ có một tài khoản sở hữu và một thời gian dùng thử.": "No card required. Each domain belongs to one account and gets one trial period.",
+  "Đăng ký dùng thử": "Sign up for a trial",
+  "Tạo tài khoản và chatbot đầu tiên trong 1 phút. Dùng thử 14 ngày, không cần thẻ.": "Create an account and your first chatbot in a minute. 14-day trial, no card needed.",
+  "Loại chatbot": "Chatbot type",
+  "Tên cửa hàng": "Shop name",
+  "Domain thuộc một tài khoản duy nhất. Xác minh DNS trong workspace trước khi nhúng.": "A domain belongs to a single account. Verify DNS in the workspace before embedding.",
+  "Tên của bạn": "Your name",
+  "Mật khẩu": "Password",
+  "Tối thiểu 8 ký tự.": "At least 8 characters.",
+  "Đang tạo…": "Creating…",
+  "Tạo chatbot & kiểm tra domain": "Create chatbot & check domain",
+};
+
+Object.assign(chrome, { "Đã có tài khoản?": "Already have an account?" });
+
+Object.assign(chrome, {
+  "Hệ sinh thái chatbot bán hàng cho cửa hàng Việt": "A chatbot ecosystem for sales-driven shops",
+  "Chọn đúng chatbot cho ngành của bạn: tư vấn theo dữ liệu thật, đặt lịch, chuyển nhân viên, phân tích nhu cầu khách. Dùng thử 14 ngày, dán một dòng mã là chạy.":
+    "Pick the right chatbot for your industry: advice from real data, bookings, staff handoff and customer-demand analytics. 14-day trial — paste one line of code and it runs.",
+  "Yêu cầu nhân viên": "Staff requested",
+});

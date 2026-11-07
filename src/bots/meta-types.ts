@@ -11,7 +11,7 @@ export interface BotMeta {
   tagline: string;
   description: string;
   /** Tên icon lucide-react */
-  icon: "ShoppingBag" | "Grid3x3" | "Bot";
+  icon: "ShoppingBag" | "Grid3x3" | "GraduationCap" | "Sofa" | "Bot";
   /** Lớp Tailwind cho ô icon + màu nhấn của bot (không thay màu thương hiệu chung) */
   tile: string;
   accentHex: string;

@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LEAD_SOURCE_LABELS } from "@/domain/lead";
@@ -7,6 +8,7 @@ import { LeadEditForm } from "@/components/admin/LeadEditForm";
 import { Card, PageHeader, btnSecondary, fmtDateTime } from "@/components/admin/ui";
 
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
+  const { t } = await getT();
   const s = await requireSession();
   const { id } = await params;
   const c = await app();
@@ -16,18 +18,18 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     <>
       <PageHeader
         title={lead.name}
-        subtitle={`${LEAD_SOURCE_LABELS[lead.source]} · ${fmtDateTime(lead.createdAt)}`}
+        subtitle={`${t(LEAD_SOURCE_LABELS[lead.source])} ·${fmtDateTime(lead.createdAt)}`}
         actions={
           <Link href="/admin/leads" className={btnSecondary}>
-            ← Danh sách
+            {t("← Danh sách")}
           </Link>
         }
       />
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card title="Liên hệ">
+        <Card title={t("Liên hệ")}>
           <dl className="space-y-2 text-[14px]">
             <div>
-              <dt className="text-[12.5px] text-[var(--fg-muted)]">Điện thoại</dt>
+              <dt className="text-[12.5px] text-[var(--fg-muted)]">{t("Điện thoại")}</dt>
               <dd>
                 <a href={`tel:${lead.phone}`} className="font-medium tabular-nums underline">
                   {lead.phone}
@@ -46,17 +48,17 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             )}
             {lead.conversationId && (
               <div>
-                <dt className="text-[12.5px] text-[var(--fg-muted)]">Hội thoại</dt>
+                <dt className="text-[12.5px] text-[var(--fg-muted)]">{t("Hội thoại")}</dt>
                 <dd>
                   <Link href={`/admin/conversations/${lead.conversationId}`} className="underline">
-                    Xem cuộc chat
+                    {t("Xem cuộc chat")}
                   </Link>
                 </dd>
               </div>
             )}
           </dl>
         </Card>
-        <Card title="Cập nhật" className="lg:col-span-2">
+        <Card title={t("Cập nhật")} className="lg:col-span-2">
           <LeadEditForm lead={{ id: lead.id, status: lead.status, note: lead.note, wonValue: lead.wonValue }} />
         </Card>
       </div>

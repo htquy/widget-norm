@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n/server";
 import Link from "next/link";
 import { BOOKING_STATUS_LABELS, type BookingStatus } from "@/domain/booking";
 import { LEAD_STATUS_LABELS, type LeadStatus } from "@/domain/lead";
@@ -41,6 +42,7 @@ export default async function Dashboard({
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
+  const { t } = await getT();
   const s = await requireSession();
   const days = parseDays((await searchParams).days);
   const c = await app();
@@ -60,25 +62,25 @@ export default async function Dashboard({
       <div className="workspace-welcome">
         <div>
           <p className="text-xs font-medium text-brand-800">
-            Một ngày mới ở cửa hàng
+            {t("Một ngày mới ở cửa hàng")}
           </p>
           <p className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900">
-            Chào {s.name}, cùng xem khách đang cần gì.
+            {t("Chào {name}, cùng xem khách đang cần gì.", { name: s.name })}
           </p>
           <p className="mt-2 text-sm text-zinc-600">
             {tenant.settings.shopName}{" "}
             {tenant.slug.endsWith("-demo")
-              ? "· Dữ liệu minh họa, không phải hoạt động khách hàng thật"
-              : "· Hội thoại, lịch hẹn và khách tiềm năng của bạn"}
+              ? t("· Dữ liệu minh họa, không phải hoạt động khách hàng thật")
+              : t("· Hội thoại, lịch hẹn và khách tiềm năng của bạn")}
           </p>
         </div>
         <Link href="/admin/playground" className="btn-primary shrink-0">
-          Trò chuyện với bot của bạn
+          {t("Trò chuyện với bot của bạn")}
         </Link>
       </div>
       <PageHeader
-        title="Tổng quan"
-        subtitle={`Từ ${d.range.from} đến ${d.range.to}`}
+        title={t("Tổng quan")}
+        subtitle={t("Từ {from} đến {to}", { from: d.range.from, to: d.range.to })}
         actions={<RangeTabs days={days} base="/admin" />}
       />
 
@@ -88,57 +90,57 @@ export default async function Dashboard({
           className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-900 hover:bg-red-100"
         >
           <span>
-            <b>{counts.open}</b> hội thoại đang chờ nhân viên hỗ trợ
+            <b>{counts.open}</b> {t("hội thoại đang chờ nhân viên hỗ trợ")}
           </span>
-          <span className="font-medium underline">Xử lý ngay</span>
+          <span className="font-medium underline">{t("Xử lý ngay")}</span>
         </Link>
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-        <Stat label="Khách mở chat" value={num(k.visitors)} />
+        <Stat label={t("Khách mở chat")} value={num(k.visitors)} />
         <Stat
-          label="Khách nhắn tin"
+          label={t("Khách nhắn tin")}
           value={num(k.conversations)}
           sub={
             k.visitors
-              ? `${pct(k.conversations / k.visitors)} người mở chat`
+              ? t("{p} người mở chat", { p: pct(k.conversations / k.visitors) })
               : undefined
           }
         />
-        <Stat label="Lịch hẹn mới" value={num(k.bookings)} />
+        <Stat label={t("Lịch hẹn mới")} value={num(k.bookings)} />
         <Stat
-          label="Lead (để lại SĐT)"
+          label={t("Lead (để lại SĐT)")}
           value={num(k.leads)}
-          sub={`${pct(k.leadRate)} người mở chat`}
+          sub={t("{p} người mở chat", { p: pct(k.leadRate) })}
         />
         <Stat
-          label="Cần nhân viên"
+          label={t("Cần nhân viên")}
           value={num(k.handoffs)}
-          sub="khách được chuyển"
+          sub={t("khách được chuyển")}
         />
         <Stat
-          label="Doanh thu chốt"
+          label={t("Doanh thu chốt")}
           value={formatVnd(k.revenue)}
-          sub={`${k.won} đơn`}
+          sub={t("{n} đơn", { n: k.won })}
         />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card title="Lượng khách theo ngày">
+        <Card title={t("Lượng khách theo ngày")}>
           <DailyLines
             data={d.daily}
             series={[
-              { key: "visitors", name: "Mở chat", color: S1 },
-              { key: "conversations", name: "Nhắn tin", color: S2 },
+              { key: "visitors", name: t("Mở chat"), color: S1 },
+              { key: "conversations", name: t("Nhắn tin"), color: S2 },
             ]}
           />
         </Card>
-        <Card title="Chuyển đổi theo ngày">
+        <Card title={t("Chuyển đổi theo ngày")}>
           <DailyBars
             data={d.daily}
             series={[
-              { key: "bookings", name: "Đặt lịch", color: S3 },
-              { key: "leads", name: "Để lại liên hệ", color: S4 },
+              { key: "bookings", name: t("Đặt lịch"), color: S3 },
+              { key: "leads", name: t("Để lại liên hệ"), color: S4 },
             ]}
           />
         </Card>
@@ -146,16 +148,16 @@ export default async function Dashboard({
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card
-          title="Phễu chuyển đổi"
+          title={t("Phễu chuyển đổi")}
           right={
             <span className="text-[12px] text-[var(--fg-muted)]">
-              số khách khác nhau
+              {t("số khách khác nhau")}
             </span>
           }
         >
           <FunnelChart data={d.funnel} />
         </Card>
-        <Card title="Sản phẩm được quan tâm">
+        <Card title={t("Sản phẩm được quan tâm")}>
           {d.topProducts.length ? (
             <BarList
               data={d.topProducts.map((p) => ({
@@ -164,19 +166,19 @@ export default async function Dashboard({
               }))}
             />
           ) : (
-            <Empty>Chưa có lượt bấm sản phẩm.</Empty>
+            <Empty>{t("Chưa có lượt bấm sản phẩm.")}</Empty>
           )}
         </Card>
         <Card
-          title="Mức hài lòng"
+          title={t("Mức hài lòng")}
           right={
             <Link href="/admin/conversations" className="text-[13px] underline">
-              Xem hội thoại
+              {t("Xem hội thoại")}
             </Link>
           }
         >
           {ratings.rated === 0 ? (
-            <Empty>Chưa có đánh giá.</Empty>
+            <Empty>{t("Chưa có đánh giá.")}</Empty>
           ) : (
             <>
               <p className="text-[28px] font-semibold tabular-nums">
@@ -202,10 +204,10 @@ export default async function Dashboard({
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card
-          title="Trạng thái lead"
+          title={t("Trạng thái lead")}
           right={
             <Link href="/admin/leads" className="text-[13px] underline">
-              Xem tất cả
+              {t("Xem tất cả")}
             </Link>
           }
         >
@@ -217,7 +219,7 @@ export default async function Dashboard({
                   className="flex min-h-10 items-center justify-between gap-2 rounded-lg border border-[var(--border)] px-3 hover:bg-[var(--surface-2)]"
                 >
                   <Badge tone={LEAD_TONE[r.status]}>
-                    {LEAD_STATUS_LABELS[r.status as LeadStatus]}
+                    {t(LEAD_STATUS_LABELS[r.status as LeadStatus])}
                   </Badge>
                   <span className="tabular-nums">{r.count}</span>
                 </Link>
@@ -226,10 +228,10 @@ export default async function Dashboard({
           </ul>
         </Card>
         <Card
-          title="Lịch hẹn tạo trong kỳ"
+          title={t("Lịch hẹn tạo trong kỳ")}
           right={
             <Link href="/admin/bookings" className="text-[13px] underline">
-              Mở lịch
+              {t("Mở lịch")}
             </Link>
           }
         >
@@ -240,7 +242,7 @@ export default async function Dashboard({
                 className="flex min-h-10 items-center justify-between gap-2 rounded-lg border border-[var(--border)] px-3"
               >
                 <Badge tone={BOOKING_TONE[r.status]}>
-                  {BOOKING_STATUS_LABELS[r.status as BookingStatus]}
+                  {t(BOOKING_STATUS_LABELS[r.status as BookingStatus])}
                 </Badge>
                 <span className="tabular-nums">{r.count}</span>
               </li>
@@ -250,7 +252,7 @@ export default async function Dashboard({
       </div>
 
       <Card
-        title="Trợ lý AI & tầng quyết định (jev)"
+        title={t("Trợ lý AI & tầng quyết định (jev)")}
         className="mt-4"
         right={
           <span className="text-[12px] text-[var(--fg-muted)]">
@@ -260,41 +262,41 @@ export default async function Dashboard({
       >
         {ai.turns === 0 ? (
           <Empty>
-            Chưa có lượt trả lời nào của bot trong khoảng thời gian này.
+            {t("Chưa có lượt trả lời nào của bot trong khoảng thời gian này.")}
           </Empty>
         ) : (
           <div className="grid gap-4 lg:grid-cols-3">
             <dl className="grid grid-cols-2 gap-3 text-[14px] sm:grid-cols-3 lg:col-span-2">
               {[
                 [
-                  "Lượt bot trả lời",
+                  t("Lượt bot trả lời"),
                   num(ai.turns),
-                  `${num(ai.calls)} lần gọi LLM`,
+                  t("{n} lần gọi LLM", { n: num(ai.calls) }),
                 ],
                 [
-                  "Không cần gọi LLM",
+                  t("Không cần gọi LLM"),
                   pct(noLlm),
-                  "nhờ tầng quyết định (mẫu / chuyển người)",
+                  t("nhờ tầng quyết định (mẫu / chuyển người)"),
                 ],
                 [
-                  "Token LLM vào / ra",
+                  t("Token LLM vào / ra"),
                   `${(ai.inputTokens / 1000).toFixed(1)}K / ${(ai.outputTokens / 1000).toFixed(1)}K`,
                   `+ ${(ai.decisionTokens / 1000).toFixed(1)}K token cho jev`,
                 ],
                 [
-                  "Độ trễ TB (có LLM)",
+                  t("Độ trễ TB (có LLM)"),
                   `${(ai.avgLatencyMs / 1000).toFixed(1)} s`,
-                  `jev: ${(ai.avgDecisionLatencyMs / 1000).toFixed(2)} s/lượt`,
+                  t("jev: {s} s/lượt", { s: (ai.avgDecisionLatencyMs / 1000).toFixed(2) }),
                 ],
                 [
-                  "Hạ cấp sang bot luật",
+                  t("Hạ cấp sang bot luật"),
                   num(ai.fallbacks),
-                  "LLM lỗi / hết hạn mức",
+                  t("LLM lỗi / hết hạn mức"),
                 ],
                 [
-                  "Guard sửa / chặn",
+                  t("Guard sửa / chặn"),
                   `${num(ai.guardRetries)} / ${num(ai.guardBlocked)}`,
-                  "câu có số liệu không có trong dữ liệu",
+                  t("câu có số liệu không có trong dữ liệu"),
                 ],
               ].map(([label, value, sub]) => (
                 <div
@@ -313,10 +315,10 @@ export default async function Dashboard({
             </dl>
             <div className="space-y-4">
               <div>
-                <h3 className="mb-2 text-[13px] font-medium">Tuyến xử lý</h3>
+                <h3 className="mb-2 text-[13px] font-medium">{t("Tuyến xử lý")}</h3>
                 <BarList
                   data={ai.byRoute.map((r) => ({
-                    label: ROUTE_LABELS[r.route] ?? r.route,
+                    label: ROUTE_LABELS[r.route] ? t(ROUTE_LABELS[r.route]) : r.route,
                     value: r.turns,
                   }))}
                 />

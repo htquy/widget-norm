@@ -15,6 +15,7 @@ export const CONTENT_TYPES: Record<string, string> = {
   ".png": "image/png",
   ".webp": "image/webp",
   ".svg": "image/svg+xml",
+  ".glb": "model/gltf-binary",
 };
 
 /** Lưu file trên ổ đĩa, phục vụ qua /api/files/<key>. Khi chạy thật thay bằng R2/S3 adapter cùng interface. */

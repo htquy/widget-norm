@@ -25,6 +25,12 @@ import { makeServices } from "@/application/use-cases/services";
 import { makeCatalog } from "@/bots/store/catalog";
 import { makeStoreModule } from "@/bots/store/module";
 import { productRepo } from "@/bots/store/repository";
+import { makeFurnitureCatalog } from "@/bots/furniture/catalog";
+import { makeFurnitureModule } from "@/bots/furniture/module";
+import { furnitureRepo } from "@/bots/furniture/repository";
+import { makeCourseCatalog } from "@/bots/education/catalog";
+import { makeEducationModule } from "@/bots/education/module";
+import { courseRepo } from "@/bots/education/repository";
 import { makeTileCatalog } from "@/bots/tile/catalog";
 import { makeTileModule } from "@/bots/tile/module";
 import { makeQuotes } from "@/bots/tile/quotes";
@@ -158,6 +164,10 @@ async function build() {
   /* ---- Module từng loại bot (mỗi module chỉ đọc/ghi schema của mình) ---- */
   const products = productRepo(db);
   const catalog = makeCatalog({ products });
+  const furnitureItems = furnitureRepo(db);
+  const furnitureCatalog = makeFurnitureCatalog({ items: furnitureItems });
+  const courses = courseRepo(db);
+  const courseCatalog = makeCourseCatalog({ courses });
   const tiles = tileRepos(db);
   const tileCatalog = makeTileCatalog({ tiles: tiles.tiles });
   const quotes = makeQuotes({
@@ -169,6 +179,14 @@ async function build() {
     tile: composeWithAvi(
       makeStoreModule({ catalog, products }),
       makeTileModule({ repos: tiles, catalog: tileCatalog, quotes, files }),
+    ),
+    education: composeWithAvi(
+      makeStoreModule({ catalog, products }),
+      makeEducationModule({ catalog: courseCatalog, courses }),
+    ),
+    furniture: composeWithAvi(
+      makeStoreModule({ catalog, products }),
+      makeFurnitureModule({ catalog: furnitureCatalog, items: furnitureItems, files }),
     ),
   };
   const moduleOf = (t: Tenant) => modules[t.kind] ?? modules.store;
@@ -228,6 +246,8 @@ async function build() {
     services,
     catalog,
     tileCatalog,
+    courseCatalog,
+    furnitureCatalog,
     tileRepos: tiles,
     quotes,
     leads,

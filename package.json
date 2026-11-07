@@ -13,12 +13,19 @@
     "db:migrate": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/seed-data.ts",
     "models": "node scripts/download-models.mjs",
+    "embed:catalog": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/embed-catalog.ts",
     "eval:decision": "tsx --env-file-if-exists=.env.local scripts/eval-decision.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1162.0",
     "@electric-sql/pglite": "^0.5.15",
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "@google/model-viewer": "^4.4.0",
     "@huggingface/transformers": "^4.3.2",
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.2",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.4",
     "jose": "^6.2.15",
@@ -30,6 +37,8 @@
     "react-dom": "^19.3.1",
     "recharts": "^3.10.1",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.5",
+    "three": "^0.183.2",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -39,6 +48,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.183.1",
     "tailwindcss": "^4.3.4",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",

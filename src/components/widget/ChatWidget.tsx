@@ -1,5 +1,8 @@
 "use client";
 
+import { ExpandButton, FrameCtx } from "./frame";
+import { TrProvider, makeTr, useTr, widgetPhrases } from "./i18n";
+import type { ChatLang } from "@/domain/chat-text";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WidgetAction } from "@/domain/conversation";
 import type { WidgetTheme } from "@/domain/theme";
@@ -59,6 +62,31 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
   const [panel, setPanel] = useState<Panel>({ kind: "none" });
   const [loadError, setLoadError] = useState("");
   const [prefersDark, setPrefersDark] = useState(false);
+  const lang: ChatLang = config?.language ?? "vi";
+  const tr = makeTr(lang);
+  const wp = widgetPhrases(lang);
+  // Phóng to khung chat (chỉ khi nhúng trong iframe của widget.js, màn hình rộng)
+  const [expanded, setExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(false);
+  const autoExpanded = useRef(false);
+  const applyExpanded = useCallback((on: boolean) => {
+    setExpanded(on);
+    window.parent?.postMessage({ type: "wn:expand", expanded: on }, "*");
+    try {
+      sessionStorage.setItem("wn_expanded", on ? "1" : "0");
+    } catch {
+      /* bỏ qua */
+    }
+  }, []);
+  useEffect(() => {
+    if (preview || window.parent === window || window.screen.width <= 540) return;
+    setCanExpand(true);
+    try {
+      if (sessionStorage.getItem("wn_expanded") === "1") applyExpanded(true);
+    } catch {
+      /* bỏ qua */
+    }
+  }, [preview, applyExpanded]);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -146,7 +174,7 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
       });
       if (res.reply?.action?.type === "booking") setPanel({ kind: "booking", serviceId: res.reply.action.serviceId });
     } catch (e) {
-      setMessages((m) => [...m.filter((x) => x.id !== `${tempId}-p`), { id: `${tempId}-e`, role: "system", text: e instanceof Error ? e.message : "Có lỗi xảy ra", at: now, local: true }]);
+      setMessages((m) => [...m.filter((x) => x.id !== `${tempId}-p`), { id: `${tempId}-e`, role: "system", text: e instanceof Error ? e.message : tr("Có lỗi xảy ra"), at: now, local: true }]);
     } finally {
       setSending(false);
       inputRef.current?.focus();
@@ -166,6 +194,20 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
     window.parent?.postMessage({ type: "wn:close" }, "*");
   }
 
+  // Mở panel toàn khung (studio nội thất, thử gạch…) thì tự phóng to cho dễ nhìn; đóng panel thì trả lại cỡ cũ
+  const panelIsFull = panel.kind === "ext" && !!extensionFor(config?.kind ?? "store")?.fullScreenPanels?.includes(panel.name);
+  useEffect(() => {
+    if (!canExpand) return;
+    if (panelIsFull && !expanded) {
+      autoExpanded.current = true;
+      applyExpanded(true);
+    } else if (!panelIsFull && autoExpanded.current) {
+      autoExpanded.current = false;
+      applyExpanded(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelIsFull, canExpand]);
+
   if (loadError) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-white p-6 text-center" role="alert">
@@ -178,7 +220,7 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-white text-[14px] text-neutral-600" aria-busy="true">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />
-        Đang kết nối trợ lý…
+        {tr("Đang kết nối trợ lý…")}
       </div>
     );
   }
@@ -198,10 +240,14 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
     openPanel: (name, data) => setPanel({ kind: "ext", name, data }),
     closePanel: () => setPanel({ kind: "none" }),
     pushLocal,
+    tr,
+    lang,
   };
   const fullScreen = panel.kind === "ext" && !!ext?.fullScreenPanels?.includes(panel.name);
 
   return (
+    <TrProvider lang={lang}>
+    <FrameCtx.Provider value={{ canExpand, expanded, toggle: () => { autoExpanded.current = false; applyExpanded(!expanded); } }}>
     <div className="relative flex h-full flex-col overflow-hidden bg-[var(--w-bg)] text-[var(--w-fg)]" style={widgetVars(theme, dark)}>
       {font && <link rel="stylesheet" href={font} />}
       <header className="flex items-center gap-3 bg-[var(--w-primary)] px-3 py-2.5 text-[var(--w-on-primary)]">
@@ -210,22 +256,23 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
           <p className="truncate text-[15px] font-semibold leading-tight">{theme.botName}</p>
           <p className="flex items-center gap-1.5 truncate text-[12.5px] opacity-90">
             <span className={`inline-block h-2 w-2 rounded-full ${config.openNow ? "bg-emerald-400" : "bg-neutral-300"}`} aria-hidden="true" />
-            {mode === "human" ? "Nhân viên đang trả lời" : theme.headerSubtitle || (config.openNow ? "Đang hoạt động" : "Ngoài giờ — vẫn trả lời tự động")}
+            {mode === "human" ? tr("Nhân viên đang trả lời") : theme.headerSubtitle || (config.openNow ? tr("Đang hoạt động") : tr("Ngoài giờ — vẫn trả lời tự động"))}
           </p>
         </div>
         {config.phone && (
-          <a href={`tel:${config.phone.replace(/\s/g, "")}`} aria-label={`Gọi ${config.phone}`} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-black/10">
+          <a href={`tel:${config.phone.replace(/\s/g, "")}`} aria-label={wp.call(config.phone)} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-black/10">
             <PhoneIcon />
           </a>
         )}
-        <button type="button" onClick={close} aria-label="Thu nhỏ cửa sổ chat" className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-black/10">
+        <ExpandButton />
+        <button type="button" onClick={close} aria-label={tr("Thu nhỏ cửa sổ chat")} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-black/10">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
             <path d="M6 9l6 6 6-6" />
           </svg>
         </button>
       </header>
 
-      <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-4" aria-live="polite" aria-label="Nội dung trò chuyện">
+      <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-4" aria-live="polite" aria-label={tr("Nội dung trò chuyện")}>
         <Bubble theme={theme} shopName={config.shopName} role="assistant" text={config.greeting} />
         {messages.map((m) => (
           <Fragment key={m.id}>
@@ -243,7 +290,7 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
                     products={m.products as ProductCard[]}
                     onAsk={(p) => {
                       api.track("product_clicked", { conversationId, refId: p.id });
-                      send(`Cho mình biết thêm về ${p.name}`);
+                      send(wp.askMore(p.name));
                     }}
                     onOpen={(p) => api.track("product_clicked", { conversationId, refId: p.id })}
                   />
@@ -253,9 +300,9 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
             {m.extrasData && ext?.renderExtras && <div className="pl-9">{ext.renderExtras(m.extrasData, helpers)}</div>}
             {m.action && <ActionCard action={m.action} config={config} onBooking={(serviceId) => setPanel({ kind: "booking", serviceId })} onCallback={() => setPanel({ kind: "callback" })} mode={mode} />}
             {(m.role === "assistant" || m.role === "agent") && !m.pending && !m.local && !preview && (
-              <div className="flex gap-1 pl-9" aria-label="Đánh giá câu trả lời">
-                <FeedbackBtn active={m.feedback === 1} label="Hữu ích" onClick={() => feedback(m, 1)} up />
-                <FeedbackBtn active={m.feedback === -1} label="Chưa hữu ích" onClick={() => feedback(m, -1)} />
+              <div className="flex gap-1 pl-9" aria-label={tr("Đánh giá câu trả lời")}>
+                <FeedbackBtn active={m.feedback === 1} label={tr("Hữu ích")} onClick={() => feedback(m, 1)} up />
+                <FeedbackBtn active={m.feedback === -1} label={tr("Chưa hữu ích")} onClick={() => feedback(m, -1)} />
               </div>
             )}
           </Fragment>
@@ -279,7 +326,7 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
                 key={q}
                 type="button"
                 disabled={sending}
-                onClick={() => (/đặt lịch/i.test(q) && config.bookingEnabled ? (setPanel({ kind: "booking", hint: q }), api.track("booking_opened", { conversationId })) : send(q))}
+                onClick={() => (/(đặt lịch|book)/i.test(q) && config.bookingEnabled ? (setPanel({ kind: "booking", hint: q }), api.track("booking_opened", { conversationId })) : send(q))}
                 className="min-h-9 shrink-0 rounded-[var(--w-r-pill)] border border-[var(--w-border)] bg-[var(--w-surface)] px-3 text-[13px] font-medium text-[var(--w-fg)] transition hover:border-[var(--w-primary)] hover:text-[var(--w-primary)] disabled:opacity-50"
               >
                 {q}
@@ -295,7 +342,7 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
           className="flex items-end gap-2"
         >
           <label htmlFor="wn-input" className="sr-only">
-            Nhập tin nhắn
+            {tr("Nhập tin nhắn")}
           </label>
           <textarea
             id="wn-input"
@@ -310,13 +357,13 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
                 send(input);
               }
             }}
-            placeholder={mode === "human" ? "Nhắn cho nhân viên…" : "Nhập câu hỏi của bạn…"}
+            placeholder={mode === "human" ? tr("Nhắn cho nhân viên…") : tr("Nhập câu hỏi của bạn…")}
             className="max-h-28 min-h-11 min-w-0 flex-1 resize-none rounded-[var(--w-r-control)] border border-[var(--w-border)] bg-[var(--w-surface-2)] px-3.5 py-2.5 text-[15px] text-[var(--w-fg)] outline-none placeholder:text-[var(--w-muted)] focus:border-[var(--w-primary)] focus:bg-[var(--w-surface)]"
           />
           <button
             type="submit"
             disabled={sending || !input.trim()}
-            aria-label="Gửi"
+            aria-label={tr("Gửi")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--w-r-pill)] bg-[var(--w-primary)] text-[var(--w-on-primary)] transition hover:brightness-110 disabled:opacity-40"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -326,9 +373,9 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
         </form>
         <div className="mt-1.5 flex items-center justify-between px-1 text-[11.5px] text-[var(--w-muted)]">
           <button type="button" onClick={() => setPanel({ kind: "lead" })} className="min-h-7 underline-offset-2 hover:underline">
-            Để lại liên hệ
+            {tr("Để lại liên hệ")}
           </button>
-          {theme.showBranding && <span>Trợ lý AI · Widget Norm</span>}
+          {theme.showBranding && <span>{tr("Trợ lý AI · Widget Norm")}</span>}
         </div>
       </div>
 
@@ -365,6 +412,8 @@ export function ChatWidget({ tenant, visitorId: givenVisitorId, origin, preview 
         </div>
       )}
     </div>
+    </FrameCtx.Provider>
+    </TrProvider>
   );
 }
 
@@ -408,19 +457,20 @@ function RichText({ text }: { text: string }) {
 }
 
 function Bubble({ theme, shopName, role, text, pending, agentName }: { theme: WidgetTheme; shopName: string; role: "user" | "assistant" | "agent" | "system"; text: string; pending?: boolean; agentName?: string }) {
+  const tr = useTr();
   const isUser = role === "user";
   return (
     <div className={`flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser && <Avatar theme={theme} shopName={shopName} size={28} />}
       <div className="max-w-[82%]">
-        {role === "agent" && <p className="mb-0.5 text-[11.5px] font-medium text-[var(--w-muted)]">{agentName ?? "Nhân viên"}</p>}
+        {role === "agent" && <p className="mb-0.5 text-[11.5px] font-medium text-[var(--w-muted)]">{agentName ?? tr("Nhân viên")}</p>}
         <div
           className={`rounded-[var(--w-r-bubble)] px-3.5 py-2.5 text-[14.5px] leading-relaxed ${
             isUser ? "rounded-br-[4px] bg-[var(--w-primary)] text-[var(--w-on-primary)]" : "rounded-bl-[4px] border border-[var(--w-border)] bg-[var(--w-surface)] text-[var(--w-fg)]"
           }`}
         >
           {pending ? (
-            <span className="flex items-center gap-1 py-1" aria-label="Đang trả lời">
+            <span className="flex items-center gap-1 py-1" aria-label={tr("Đang trả lời")}>
               {[0, 150, 300].map((d) => (
                 <span key={d} className="h-2 w-2 animate-bounce rounded-full bg-[var(--w-muted)]" style={{ animationDelay: `${d}ms` }} />
               ))}
@@ -437,6 +487,7 @@ function Bubble({ theme, shopName, role, text, pending, agentName }: { theme: Wi
 }
 
 function ActionCard({ action, config, onBooking, onCallback, mode }: { action: WidgetAction; config: PublicConfig; onBooking: (serviceId?: string) => void; onCallback: () => void; mode: "bot" | "human" }) {
+  const tr = useTr();
   const btn = "flex min-h-11 items-center justify-center gap-2 rounded-[var(--w-r-control)] px-3 text-[14px] font-semibold transition";
   if (action.type === "booking") {
     return (
@@ -450,11 +501,11 @@ function ActionCard({ action, config, onBooking, onCallback, mode }: { action: W
   if (action.type === "lead") return null;
   return (
     <div className="ml-9 space-y-2 rounded-[var(--w-r-bubble)] border border-[var(--w-border)] bg-[var(--w-surface)] p-3">
-      <p className="text-[13px] font-semibold text-[var(--w-fg)]">{mode === "human" ? "Nhân viên đang hỗ trợ bạn" : "Kết nối với nhân viên"}</p>
+      <p className="text-[13px] font-semibold text-[var(--w-fg)]">{mode === "human" ? tr("Nhân viên đang hỗ trợ bạn") : tr("Kết nối với nhân viên")}</p>
       {config.handoff.liveChat && config.openNow && mode !== "human" && <p className="text-[13px] text-[var(--w-muted)]">Nhân viên sẽ vào cuộc trò chuyện này — bạn cứ để cửa sổ mở nhé.</p>}
       <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={onCallback} className={`${btn} col-span-2 bg-[var(--w-primary)] text-[var(--w-on-primary)] hover:brightness-110`}>
-          Để lại số, nhân viên gọi lại
+          {tr("Để lại số, nhân viên gọi lại")}
         </button>
         {config.phone && (
           <a href={`tel:${config.phone.replace(/\s/g, "")}`} className={`${btn} border border-[var(--w-border)] text-[var(--w-fg)] hover:bg-[var(--w-surface-2)]`}>
@@ -494,10 +545,11 @@ function FeedbackBtn({ active, label, onClick, up }: { active: boolean; label: s
 }
 
 function RatingBar({ onRate }: { onRate: (n: number) => void }) {
+  const tr = useTr();
   return (
     <div className="mx-auto mt-2 w-fit rounded-[var(--w-r-bubble)] border border-[var(--w-border)] bg-[var(--w-surface)] px-3 py-2 text-center">
       <p className="text-[13px] text-[var(--w-muted)]">Bạn thấy cuộc trò chuyện thế nào?</p>
-      <div className="mt-1 flex justify-center" role="radiogroup" aria-label="Đánh giá từ 1 đến 5 sao">
+      <div className="mt-1 flex justify-center" role="radiogroup" aria-label={tr("Đánh giá từ 1 đến 5 sao")}>
         {[1, 2, 3, 4, 5].map((n) => (
           <button key={n} type="button" onClick={() => onRate(n)} aria-label={`${n} sao`} className="flex h-10 w-10 items-center justify-center text-[22px] text-amber-400 hover:scale-110">
             ★

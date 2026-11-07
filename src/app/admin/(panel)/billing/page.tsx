@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n/server";
 import Link from "next/link";
 import { Globe2, ShieldCheck, CreditCard } from "lucide-react";
 import { requireSession } from "@/infrastructure/auth/session";
@@ -16,6 +17,7 @@ import { listHubPrices } from "@/infrastructure/hub/payments";
 import type { HubPrice } from "@/infrastructure/hub/payment-types";
 
 export default async function BillingPage() {
+  const { t } = await getT();
   const s = await requireSession(),
     c = await app();
   const tenant = (await c.tenants.byId(s.tenantId))!;
@@ -28,20 +30,20 @@ export default async function BillingPage() {
     if (access) prices = await listHubPrices(tenant.kind);
   } catch {
     error =
-      "Chưa kiểm tra được gói với trung tâm. Hãy đăng nhập lại hoặc thử lại sau.";
+      t("Chưa kiểm tra được gói với trung tâm. Hãy đăng nhập lại hoặc thử lại sau.");
   }
   const price = BOT_PRICING[tenant.kind];
   const activated = (await licensedBot(s.accountId, tenant.kind)) === tenant.id;
   return (
     <>
       <PageHeader
-        title="Domain & thanh toán"
-        subtitle="Một tài khoản trung tâm, quyền sở hữu website rõ ràng."
+        title={t("Domain & thanh toán")}
+        subtitle={t("Một tài khoản trung tâm, quyền sở hữu website rõ ràng.")}
       />
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="space-y-5">
           <Card
-            title="Kết nối website"
+            title={t("Kết nối website")}
             right={<Globe2 className="size-5 text-brand-700" />}
           >
             <DomainForm />
@@ -54,17 +56,17 @@ export default async function BillingPage() {
                 <span
                   className={`text-xs font-semibold ${d.verifiedAt ? "text-emerald-800" : "text-amber-800"}`}
                 >
-                  {d.verifiedAt ? "Đã xác minh" : "Chờ DNS"}
+                  {d.verifiedAt ? t("Đã xác minh") : t("Chờ DNS")}
                 </span>
               }
             >
               <p className="text-sm text-zinc-600">
-                Thêm bản ghi TXT trong phần quản lý DNS của website:
+                {t("Thêm bản ghi TXT trong phần quản lý DNS của website:")}
               </p>
               <dl className="mt-3 space-y-2 rounded-xl bg-zinc-50 p-4 text-sm">
-                <dt className="text-zinc-500">Tên</dt>
+                <dt className="text-zinc-500">{t("Tên")}</dt>
                 <dd className="break-all font-mono">_avi-verify.{d.domain}</dd>
-                <dt className="text-zinc-500">Giá trị</dt>
+                <dt className="text-zinc-500">{t("Giá trị")}</dt>
                 <dd className="break-all font-mono">
                   avi-verification={d.token}
                 </dd>
@@ -74,7 +76,7 @@ export default async function BillingPage() {
           ))}
         </div>
         <Card
-          title="Gói chatbot đang chọn"
+          title={t("Gói chatbot đang chọn")}
           right={<CreditCard className="size-5 text-brand-700" />}
         >
           <p className="text-3xl font-bold">
@@ -88,14 +90,14 @@ export default async function BillingPage() {
             {price.includes.map((item) => (
               <li key={item} className="flex gap-2 text-sm">
                 <ShieldCheck className="size-4 shrink-0 text-emerald-700" />
-                {item}
+                {t(item)}
               </li>
             ))}
           </ul>
           <p className="mb-4 text-sm text-zinc-600">
             {access?.hasActiveSubscription
-              ? `${activated ? "Đã kích hoạt cho bot này" : "Đã thanh toán, cần chọn bot kích hoạt"}: ${access.subscription?.planName ?? "Gói trả phí"}`
-              : "Chưa có gói trả phí được xác nhận từ trung tâm."}
+              ? `${activated ? t("Đã kích hoạt cho bot này") : t("Đã thanh toán, cần chọn bot kích hoạt")}: ${access.subscription?.planName ?? t("Gói trả phí")}`
+              : t("Chưa có gói trả phí được xác nhận từ trung tâm.")}
           </p>
           {error && (
             <p role="alert" className="mb-4 text-sm text-amber-900">
@@ -110,13 +112,11 @@ export default async function BillingPage() {
               href="/api/auth/hub/start?link=1"
               className={`${btnPrimary} w-full`}
             >
-              Liên kết tài khoản trung tâm
+              {t("Liên kết tài khoản trung tâm")}
             </Link>
           )}
           <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-            Gói, đơn hàng và mã QR lấy qua API Skill Pages. Trạng thái thanh
-            toán được kiểm tra tự động; tiền và quyền sử dụng do trung tâm xác
-            nhận.
+            {t("Gói, đơn hàng và mã QR lấy qua API Skill Pages. Trạng thái thanh toán được kiểm tra tự động; tiền và quyền sử dụng do trung tâm xác nhận.")}
           </p>
         </Card>
       </div>

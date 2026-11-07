@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/lib/i18n/client";
 import { useActionState } from "react";
 import { signupAction } from "@/app/admin/actions";
 
@@ -15,6 +16,7 @@ export function SignupForm({
   defaultKind: string;
   signedIn?: boolean;
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState(signupAction, undefined);
   return (
     <form
@@ -23,7 +25,7 @@ export function SignupForm({
     >
       <fieldset>
         <legend className="mb-2 text-sm font-semibold text-zinc-900">
-          Loại chatbot
+          {t("Loại chatbot")}
         </legend>
         <div className="space-y-2">
           {kinds.map((k) => (
@@ -52,7 +54,7 @@ export function SignupForm({
       </fieldset>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold text-zinc-900">
-          Tên cửa hàng
+          {t("Tên cửa hàng")}
         </span>
         <input
           name="shopName"
@@ -75,15 +77,14 @@ export function SignupForm({
           className={field}
         />
         <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
-          Domain thuộc một tài khoản duy nhất. Xác minh DNS trong workspace
-          trước khi nhúng.
+          {t("Domain thuộc một tài khoản duy nhất. Xác minh DNS trong workspace trước khi nhúng.")}
         </span>
       </label>
       {!signedIn && (
         <>
           <label className="block text-sm">
             <span className="mb-1 block font-semibold text-zinc-900">
-              Tên của bạn
+              {t("Tên của bạn")}
             </span>
             <input
               name="name"
@@ -107,7 +108,7 @@ export function SignupForm({
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-semibold text-zinc-900">
-              Mật khẩu
+              {t("Mật khẩu")}
             </span>
             <input
               name="password"
@@ -118,7 +119,7 @@ export function SignupForm({
               className={field}
             />
             <span className="mt-1 block text-xs text-zinc-500">
-              Tối thiểu 8 ký tự.
+              {t("Tối thiểu 8 ký tự.")}
             </span>
           </label>
         </>
@@ -132,7 +133,7 @@ export function SignupForm({
         </p>
       )}
       <button disabled={pending} className="btn-primary w-full text-base">
-        {pending ? "Đang tạo…" : "Tạo chatbot & kiểm tra domain"}
+        {pending ? t("Đang tạo…") : t("Tạo chatbot & kiểm tra domain")}
       </button>
     </form>
   );

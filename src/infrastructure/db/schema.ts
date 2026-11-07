@@ -14,6 +14,9 @@ import {
 } from "drizzle-orm/pg-core";
 import type { TenantSettings } from "@/domain/tenant";
 import type { TranscriptEntry } from "@/domain/conversation";
+import type { PricingRule } from "@/bots/store/estimate";
+import type { Intake, Promo } from "@/bots/education/domain";
+import type { Room } from "@/bots/furniture/domain";
 import type {
   QuoteOptions,
   QuotePricing,
@@ -246,12 +249,78 @@ export const products = storeSchema.table(
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
     inStock: boolean("in_stock").notNull().default(true),
     active: boolean("active").notNull().default(true),
+    /** Công thức báo giá (PricingRule); null = chỉ có giá niêm yết */
+    pricing: jsonb("pricing").$type<PricingRule | null>(),
     createdAt: ts("created_at"),
   },
   (t) => [uniqueIndex("products_tenant_sku").on(t.tenantId, t.sku)],
 );
 
 /* =============================== tile =============================== */
+
+export const educationSchema = pgSchema("education");
+
+export const courses = educationSchema.table(
+  "courses",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    category: text("category").notNull().default(""),
+    level: text("level").notNull().default(""),
+    audience: text("audience").notNull().default(""),
+    durationWeeks: integer("duration_weeks").notNull().default(0),
+    sessionsPerWeek: integer("sessions_per_week").notNull().default(0),
+    tuition: bigint("tuition", { mode: "number" }).notNull().default(0),
+    description: text("description").notNull().default(""),
+    outcomes: text("outcomes").notNull().default(""),
+    active: boolean("active").notNull().default(true),
+    intakes: jsonb("intakes").$type<Intake[]>().notNull().default([]),
+    promos: jsonb("promos").$type<Promo[]>().notNull().default([]),
+    createdAt: ts("created_at"),
+  },
+  (t) => [uniqueIndex("courses_tenant_code").on(t.tenantId, t.code)],
+);
+
+export const furnitureSchema = pgSchema("furniture");
+
+export const furnitureItems = furnitureSchema.table(
+  "items",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    sku: text("sku").notNull(),
+    name: text("name").notNull(),
+    category: text("category").notNull().default(""),
+    rooms: jsonb("rooms").$type<Room[]>().notNull().default([]),
+    style: text("style").notNull().default(""),
+    material: text("material").notNull().default(""),
+    color: text("color").notNull().default(""),
+    widthCm: integer("width_cm").notNull(),
+    depthCm: integer("depth_cm").notNull(),
+    heightCm: integer("height_cm").notNull(),
+    price: bigint("price", { mode: "number" }).notNull().default(0),
+    description: text("description").notNull().default(""),
+    imageUrl: text("image_url").notNull().default(""),
+    /** Ảnh sản phẩm đã tách nền (PNG trong suốt) — studio dựng đứng trên sàn */
+    cutoutUrl: text("cutout_url").notNull().default(""),
+    /** Mô hình 3D (.glb) — xem 3D, AR */
+    modelUrl: text("model_url").notNull().default(""),
+    /** "" | pending | review | ready | failed — trạng thái tạo 3D bằng AI */
+    modelStatus: text("model_status").notNull().default(""),
+    modelJob: text("model_job").notNull().default(""),
+    collection: text("collection").notNull().default(""),
+    /** SKU các món hợp đi kèm */
+    pairs: jsonb("pairs").$type<string[]>().notNull().default([]),
+    /** Vector CLIP 512 chiều của ảnh sản phẩm (tìm theo ảnh) */
+    embedding: jsonb("embedding").$type<number[] | null>(),
+    stock: integer("stock").notNull().default(0),
+    active: boolean("active").notNull().default(true),
+    createdAt: ts("created_at"),
+  },
+  (t) => [uniqueIndex("furniture_items_tenant_sku").on(t.tenantId, t.sku)],
+);
 
 export const tileSchema = pgSchema("tile");
 
@@ -334,6 +403,8 @@ END $$`;
 export const DDL = [
   `CREATE SCHEMA IF NOT EXISTS store`,
   `CREATE SCHEMA IF NOT EXISTS tile`,
+  `CREATE SCHEMA IF NOT EXISTS education`,
+  `CREATE SCHEMA IF NOT EXISTS furniture`,
 
   /* ---- public ---- */
   `CREATE TABLE IF NOT EXISTS bot_licenses (key text PRIMARY KEY, account_id text NOT NULL, kind text NOT NULL, tenant_id text NOT NULL)`,
@@ -390,12 +461,34 @@ export const DDL = [
   `CREATE TABLE IF NOT EXISTS message_insights (id bigserial PRIMARY KEY, tenant_id text NOT NULL, conversation_id text NOT NULL, text text NOT NULL, label text NOT NULL, confidence real NOT NULL DEFAULT 0, topic text NOT NULL DEFAULT '', need text NOT NULL DEFAULT '', sentiment text NOT NULL DEFAULT 'neutral', handled_by text NOT NULL, unanswered boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now())`,
   `CREATE INDEX IF NOT EXISTS insights_tenant_created ON message_insights (tenant_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS llm_calls (id bigserial PRIMARY KEY, tenant_id text NOT NULL, conversation_id text NOT NULL, provider text NOT NULL, model text NOT NULL, input_tokens integer NOT NULL DEFAULT 0, output_tokens integer NOT NULL DEFAULT 0, calls integer NOT NULL DEFAULT 0, latency_ms integer NOT NULL DEFAULT 0, outcome text NOT NULL, error text, decision_label text, decision_confidence real, decision_model text, decision_latency_ms integer NOT NULL DEFAULT 0, decision_tokens integer NOT NULL DEFAULT 0, route text NOT NULL DEFAULT '', created_at timestamptz NOT NULL DEFAULT now())`,
+  `ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS decision_label text`,
+  `ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS decision_confidence real`,
+  `ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS decision_model text`,
+  `ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS decision_latency_ms integer NOT NULL DEFAULT 0`,
+  `ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS decision_tokens integer NOT NULL DEFAULT 0`,
+  `ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS route text NOT NULL DEFAULT ''`,
   `CREATE INDEX IF NOT EXISTS llm_calls_tenant_created ON llm_calls (tenant_id, created_at)`,
 
   /* ---- store ---- */
   moveToSchema("products", "store"),
   `CREATE TABLE IF NOT EXISTS store.products (id text PRIMARY KEY, tenant_id text NOT NULL, sku text NOT NULL, name text NOT NULL, category text NOT NULL DEFAULT '', price bigint NOT NULL DEFAULT 0, description text NOT NULL DEFAULT '', url text NOT NULL DEFAULT '', image_url text NOT NULL DEFAULT '', tags jsonb NOT NULL DEFAULT '[]'::jsonb, in_stock boolean NOT NULL DEFAULT true, active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now())`,
+  `ALTER TABLE store.products ADD COLUMN IF NOT EXISTS pricing jsonb`,
   `CREATE UNIQUE INDEX IF NOT EXISTS products_tenant_sku ON store.products (tenant_id, sku)`,
+
+  /* ---- education ---- */
+  `CREATE TABLE IF NOT EXISTS education.courses (id text PRIMARY KEY, tenant_id text NOT NULL, code text NOT NULL, name text NOT NULL, category text NOT NULL DEFAULT '', level text NOT NULL DEFAULT '', audience text NOT NULL DEFAULT '', duration_weeks integer NOT NULL DEFAULT 0, sessions_per_week integer NOT NULL DEFAULT 0, tuition bigint NOT NULL DEFAULT 0, description text NOT NULL DEFAULT '', outcomes text NOT NULL DEFAULT '', active boolean NOT NULL DEFAULT true, intakes jsonb NOT NULL DEFAULT '[]'::jsonb, promos jsonb NOT NULL DEFAULT '[]'::jsonb, created_at timestamptz NOT NULL DEFAULT now())`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS courses_tenant_code ON education.courses (tenant_id, code)`,
+
+  /* ---- furniture ---- */
+  `CREATE TABLE IF NOT EXISTS furniture.items (id text PRIMARY KEY, tenant_id text NOT NULL, sku text NOT NULL, name text NOT NULL, category text NOT NULL DEFAULT '', rooms jsonb NOT NULL DEFAULT '[]'::jsonb, style text NOT NULL DEFAULT '', material text NOT NULL DEFAULT '', color text NOT NULL DEFAULT '', width_cm integer NOT NULL, depth_cm integer NOT NULL, height_cm integer NOT NULL, price bigint NOT NULL DEFAULT 0, description text NOT NULL DEFAULT '', image_url text NOT NULL DEFAULT '', stock integer NOT NULL DEFAULT 0, active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now())`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS furniture_items_tenant_sku ON furniture.items (tenant_id, sku)`,
+  `ALTER TABLE furniture.items ADD COLUMN IF NOT EXISTS cutout_url text NOT NULL DEFAULT ''`,
+  `ALTER TABLE furniture.items ADD COLUMN IF NOT EXISTS model_url text NOT NULL DEFAULT ''`,
+  `ALTER TABLE furniture.items ADD COLUMN IF NOT EXISTS model_status text NOT NULL DEFAULT ''`,
+  `ALTER TABLE furniture.items ADD COLUMN IF NOT EXISTS model_job text NOT NULL DEFAULT ''`,
+  `ALTER TABLE furniture.items ADD COLUMN IF NOT EXISTS collection text NOT NULL DEFAULT ''`,
+  `ALTER TABLE furniture.items ADD COLUMN IF NOT EXISTS pairs jsonb NOT NULL DEFAULT '[]'::jsonb`,
+  `ALTER TABLE furniture.items ADD COLUMN IF NOT EXISTS embedding jsonb`,
 
   /* ---- tile ---- */
   `CREATE TABLE IF NOT EXISTS tile.tiles (id text PRIMARY KEY, tenant_id text NOT NULL, sku text NOT NULL, name text NOT NULL, width_mm integer NOT NULL, height_mm integer NOT NULL, thickness_mm real NOT NULL, pieces_per_box integer NOT NULL, price_per_m2 integer NOT NULL, finish text NOT NULL, usage jsonb NOT NULL, style text NOT NULL DEFAULT '', color text NOT NULL DEFAULT '', texture_url text NOT NULL, description text NOT NULL DEFAULT '', images jsonb NOT NULL DEFAULT '[]'::jsonb, stock integer NOT NULL DEFAULT 0, active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now())`,
@@ -408,7 +501,7 @@ export const DDL = [
   ...PUBLIC_TABLES.map(
     (t) => `ALTER TABLE public.${t} ENABLE ROW LEVEL SECURITY`,
   ),
-  ...["store.products", "tile.tiles", "tile.quotes", "tile.settings"].map(
+  ...["store.products", "education.courses", "furniture.items", "tile.tiles", "tile.quotes", "tile.settings"].map(
     (t) => `ALTER TABLE ${t} ENABLE ROW LEVEL SECURITY`,
   ),
 ];
